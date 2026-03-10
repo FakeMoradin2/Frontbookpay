@@ -68,7 +68,7 @@ export default function BienvenidaClientePage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-[#050505] text-neutral-100 flex items-center justify-center">
-        <p className="text-sm text-neutral-400">Cargando tu espacio...</p>
+        <p className="text-sm text-neutral-400">Loading your space...</p>
       </div>
     );
   }
@@ -77,11 +77,11 @@ export default function BienvenidaClientePage() {
     <div className="min-h-screen bg-[#050505] text-neutral-100 flex items-center justify-center px-4">
       <div className="w-full max-w-md rounded-2xl border border-neutral-800 bg-[#060606] px-8 py-10 shadow-xl text-center">
         <h1 className="text-2xl font-semibold tracking-tight">
-          ¡Bienvenido{nombre ? `, ${nombre}` : ""}!
+          Welcome{nombre ? `, ${nombre}` : ""}!
         </h1>
         <p className="mt-3 text-sm text-neutral-400">
-          Ya puedes comenzar a reservar tus servicios desde la app. Este es tu
-          espacio como cliente.
+          You can now start booking your services from the app. This is your
+          space as a client.
         </p>
       </div>
     </div>

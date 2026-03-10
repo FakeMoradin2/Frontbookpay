@@ -29,17 +29,17 @@ export default function RegisterPage() {
     setError(null);
 
     if (!API_URL) {
-      setError("Falta configurar NEXT_PUBLIC_API_URL");
+      setError("NEXT_PUBLIC_API_URL is not configured");
       return;
     }
 
     if (!nombre || !email || !password || !password2) {
-      setError("Completa todos los campos.");
+      setError("Please complete all fields.");
       return;
     }
 
     if (password !== password2) {
-      setError("Las contraseñas no coinciden.");
+      setError("Passwords do not match.");
       return;
     }
 
@@ -57,7 +57,7 @@ export default function RegisterPage() {
       const data: RegisterResponse = await res.json();
 
       if (!res.ok || !data.ok) {
-        throw new Error(data.error || "No se pudo crear la cuenta.");
+        throw new Error(data.error || "Could not create account.");
       }
 
       if (typeof window !== "undefined") {
@@ -72,7 +72,7 @@ export default function RegisterPage() {
       router.push("/dashboard");
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Error desconocido al crear la cuenta.";
+        err instanceof Error ? err.message : "Unknown error creating account.";
       setError(message);
     } finally {
       setLoading(false);
@@ -83,10 +83,10 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-[#050505] text-neutral-100 flex items-center justify-center px-4">
       <div className="w-full max-w-md rounded-2xl border border-neutral-800 bg-black/60 px-8 py-10 shadow-xl backdrop-blur">
         <div className="mb-8 text-center">
-          <h1 className="text-xl font-semibold tracking-tight">Crear cuenta</h1>
+          <h1 className="text-xl font-semibold tracking-tight">Create account</h1>
           <p className="mt-1 text-sm text-neutral-400">
-            Regístrate para reservar. El perfil en la base de datos se crea
-            automáticamente.
+            Sign up to book. Your profile in the database is created
+            automatically.
           </p>
         </div>
 
@@ -99,13 +99,13 @@ export default function RegisterPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <label className="block text-sm text-neutral-300" htmlFor="nombre">
-              Nombre
+              Name
             </label>
             <input
               id="nombre"
               type="text"
               className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none ring-0 transition focus:border-neutral-500 focus:bg-neutral-900 focus:ring-1 focus:ring-neutral-500"
-              placeholder="Tu nombre"
+              placeholder="Your name"
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
             />
@@ -113,14 +113,14 @@ export default function RegisterPage() {
 
           <div className="space-y-1.5">
             <label className="block text-sm text-neutral-300" htmlFor="email">
-              Correo
+              Email
             </label>
             <input
               id="email"
               type="email"
               autoComplete="email"
               className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none ring-0 transition focus:border-neutral-500 focus:bg-neutral-900 focus:ring-1 focus:ring-neutral-500"
-              placeholder="correo@ejemplo.com"
+              placeholder="email@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
@@ -131,7 +131,7 @@ export default function RegisterPage() {
               className="block text-sm text-neutral-300"
               htmlFor="password"
             >
-              Contraseña
+              Password
             </label>
             <input
               id="password"
@@ -148,7 +148,7 @@ export default function RegisterPage() {
               className="block text-sm text-neutral-300"
               htmlFor="password2"
             >
-              Repetir contraseña
+              Confirm password
             </label>
             <input
               id="password2"
@@ -165,17 +165,17 @@ export default function RegisterPage() {
             disabled={loading}
             className="mt-2 flex h-10 w-full items-center justify-center rounded-lg bg-neutral-50 text-sm font-medium text-black transition hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {loading ? "Creando cuenta..." : "Crear cuenta"}
+            {loading ? "Creating account..." : "Create account"}
           </button>
         </form>
 
         <p className="mt-6 text-center text-xs text-neutral-500">
-          ¿Ya tienes cuenta?{" "}
+          Already have an account?{" "}
           <Link
             href="/"
             className="font-medium text-neutral-200 hover:underline"
           >
-            Iniciar sesión
+            Sign in
           </Link>
         </p>
       </div>

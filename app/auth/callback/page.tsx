@@ -66,7 +66,7 @@ export default function AuthCallbackPage() {
   return (
     <div className="min-h-screen bg-[#050505] text-neutral-100 flex items-center justify-center">
       <p className="text-sm text-neutral-400">
-        Procesando inicio de sesión con Google...
+        Processing Google sign in...
       </p>
     </div>
   );

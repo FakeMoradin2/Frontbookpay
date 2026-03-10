@@ -37,12 +37,12 @@ export default function LoginPage() {
     setError(null);
 
     if (!API_URL) {
-      setError("Falta configurar NEXT_PUBLIC_API_URL");
+      setError("NEXT_PUBLIC_API_URL is not configured");
       return;
     }
 
     if (!email || !password) {
-      setError("Ingresa tu email y contraseña.");
+      setError("Please enter your email and password.");
       return;
     }
 
@@ -60,7 +60,7 @@ export default function LoginPage() {
       const data: AuthResponse = await res.json();
 
       if (!res.ok || !data.ok) {
-        throw new Error(data.error || "No se pudo iniciar sesión.");
+        throw new Error(data.error || "Could not sign in.");
       }
 
       if (typeof window !== "undefined") {
@@ -101,7 +101,7 @@ export default function LoginPage() {
       }
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Error desconocido al iniciar sesión.";
+        err instanceof Error ? err.message : "Unknown error signing in.";
       setError(message);
     } finally {
       setLoading(false);
@@ -137,7 +137,7 @@ export default function LoginPage() {
       const message =
         err instanceof Error
           ? err.message
-          : "Error al iniciar sesión con Google.";
+          : "Error signing in with Google.";
       setError(message);
     } finally {
       setLoading(false);
@@ -152,9 +152,9 @@ export default function LoginPage() {
         </div>
 
         <div className="mb-6">
-          <h2 className="text-lg font-medium">Iniciar sesión</h2>
+          <h2 className="text-lg font-medium">Sign in</h2>
           <p className="mt-1 text-sm text-neutral-400">
-            Correo y contraseña de administrador
+            Administrator email and password
           </p>
         </div>
 
@@ -174,7 +174,7 @@ export default function LoginPage() {
               type="email"
               autoComplete="email"
               className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none ring-0 transition focus:border-neutral-500 focus:bg-neutral-900 focus:ring-1 focus:ring-neutral-500"
-              placeholder="admin@ejemplo.com"
+              placeholder="admin@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
@@ -186,13 +186,13 @@ export default function LoginPage() {
                 className="block text-sm text-neutral-300"
                 htmlFor="password"
               >
-                Contraseña
+                Password
               </label>
               <button
                 type="button"
                 className="text-xs text-neutral-400 hover:text-neutral-200"
               >
-                ¿Olvidaste tu contraseña?
+                Forgot your password?
               </button>
             </div>
             <input
@@ -210,7 +210,7 @@ export default function LoginPage() {
             disabled={loading}
             className="mt-2 flex h-10 w-full items-center justify-center rounded-lg bg-neutral-50 text-sm font-medium text-black transition hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {loading ? "Entrando..." : "Entrar"}
+            {loading ? "Signing in..." : "Sign in"}
           </button>
         </form>
 
@@ -250,16 +250,16 @@ export default function LoginPage() {
               />
             </svg>
           </span>
-          <span>Iniciar sesión con Google</span>
+          <span>Sign in with Google</span>
         </button>
 
         <p className="mt-6 text-center text-xs text-neutral-500">
-          ¿Aún no tienes cuenta?{" "}
+          Don&apos;t have an account?{" "}
           <Link
             href="/register"
             className="font-medium text-neutral-200 hover:underline"
           >
-            Crear cuenta
+            Create account
           </Link>
         </p>
       </div>
