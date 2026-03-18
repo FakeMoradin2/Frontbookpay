@@ -1,0 +1,605 @@
+"use client";
+
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import ClientNav from "@/components/ClientNav";
+
+type Servicio = {
+  id: string;
+  nombre: string;
+  duracion_min: number;
+  buffer_min: number | null;
+  precio: number;
+  anticipo_tipo: "fijo" | "porcentaje" | "no_requiere";
+  anticipo_valor: number | null;
+};
+
+type ServiciosResponse = {
+  ok: boolean;
+  data?: Servicio[];
+  error?: string;
+};
+
+type ReservaResponse = {
+  ok: boolean;
+  data?: unknown;
+  error?: string;
+};
+
+type MisReservasResponse = {
+  ok: boolean;
+  data?: Array<{
+    id: string;
+    inicio_en: string;
+    estado: string;
+    negocios?: { nombre?: string | null } | null;
+  }>;
+  error?: string;
+};
+
+type DisponibilidadResponse = {
+  ok: boolean;
+  data?: {
+    slots: Array<{
+      label: string;
+      start_iso: string;
+      end_iso: string;
+      block_key: string;
+      block_start: string;
+      block_end: string;
+    }>;
+    occupied_minutes: number;
+  };
+  error?: string;
+};
+
+type FechasDisponiblesResponse = {
+  ok: boolean;
+  data?: {
+    dates: Array<{ date: string; weekday: string; slots_count: number }>;
+    occupied_minutes: number;
+  };
+  error?: string;
+};
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+
+function computeServiceDeposit(s: Servicio): number {
+  if (s.anticipo_tipo === "no_requiere") return 0;
+  if (!s.anticipo_valor) return 0;
+  if (s.anticipo_tipo === "fijo") return Number(s.anticipo_valor);
+  const pct = Number(s.anticipo_valor);
+  return (Number(s.precio) * pct) / 100;
+}
+
+export default function BusinessBookPage() {
+  const params = useParams();
+  const router = useRouter();
+  const negocioId =
+    typeof params?.id === "string" ? params.id : Array.isArray(params?.id) ? params.id[0] : "";
+
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [services, setServices] = useState<Servicio[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedDate, setSelectedDate] = useState("");
+  const [availableDates, setAvailableDates] = useState<
+    Array<{ date: string; weekday: string; slots_count: number }>
+  >([]);
+  const [loadingDates, setLoadingDates] = useState(false);
+  const [selectedSlotStart, setSelectedSlotStart] = useState("");
+  const [selectedSlotEnd, setSelectedSlotEnd] = useState("");
+  const [availableSlots, setAvailableSlots] = useState<
+    Array<{
+      label: string;
+      start_iso: string;
+      end_iso: string;
+      block_key: string;
+      block_start: string;
+      block_end: string;
+    }>
+  >([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [occupiedMinutes, setOccupiedMinutes] = useState<number>(0);
+  const [note, setNote] = useState("");
+
+  const groupedDates = useMemo(() => {
+    const groups: Record<string, Array<{ date: string; weekday: string; slots_count: number }>> = {};
+    for (const d of availableDates) {
+      const dateObj = new Date(`${d.date}T00:00:00`);
+      const monthKey = dateObj.toLocaleDateString([], { month: "long", year: "numeric" });
+      if (!groups[monthKey]) groups[monthKey] = [];
+      groups[monthKey].push(d);
+    }
+    return Object.entries(groups);
+  }, [availableDates]);
+
+  const groupedSlotsByBlock = useMemo(() => {
+    const groups: Record<
+      string,
+      {
+        block_key: string;
+        block_start: string;
+        block_end: string;
+        slots: Array<{
+          label: string;
+          start_iso: string;
+          end_iso: string;
+          block_key: string;
+          block_start: string;
+          block_end: string;
+        }>;
+      }
+    > = {};
+
+    for (const slot of availableSlots) {
+      if (!groups[slot.block_key]) {
+        groups[slot.block_key] = {
+          block_key: slot.block_key,
+          block_start: slot.block_start,
+          block_end: slot.block_end,
+          slots: [],
+        };
+      }
+      groups[slot.block_key].slots.push(slot);
+    }
+
+    return Object.values(groups).sort((a, b) => (a.block_start < b.block_start ? -1 : 1));
+  }, [availableSlots]);
+
+  useEffect(() => {
+    const load = async () => {
+      if (!API_URL || !negocioId) {
+        setError("Missing API URL or business id.");
+        setLoading(false);
+        return;
+      }
+      try {
+        const res = await fetch(`${API_URL}/api/servicios?negocio_id=${negocioId}`);
+        const data: ServiciosResponse = await res.json();
+        if (!res.ok || !data.ok || !Array.isArray(data.data)) {
+          throw new Error(data.error || "Could not load services.");
+        }
+        setServices(data.data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Unknown error loading services.");
+      } finally {
+        setLoading(false);
+      }
+    };
+    void load();
+  }, [negocioId]);
+
+  const toggleService = (id: string) => {
+    setSelectedIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+    setSelectedDate("");
+    setAvailableDates([]);
+    setSelectedSlotStart("");
+    setSelectedSlotEnd("");
+  };
+
+  const selectedServices = services.filter((s) => selectedIds.includes(s.id));
+
+  const totalPrice = selectedServices.reduce((acc, s) => acc + Number(s.precio || 0), 0);
+  const totalDeposit = selectedServices.reduce(
+    (acc, s) => acc + computeServiceDeposit(s),
+    0
+  );
+  const remaining = Math.max(totalPrice - totalDeposit, 0);
+
+  useEffect(() => {
+    const fetchDates = async () => {
+      if (!API_URL || !negocioId || selectedIds.length === 0) {
+        setAvailableDates([]);
+        setSelectedDate("");
+        return;
+      }
+
+      setLoadingDates(true);
+      try {
+        const params = new URLSearchParams({
+          negocio_id: negocioId,
+          servicio_ids: selectedIds.join(","),
+          days: "45",
+        });
+        const res = await fetch(`${API_URL}/api/reservas/public/fechas-disponibles?${params.toString()}`);
+        const data: FechasDisponiblesResponse = await res.json();
+        if (!res.ok || !data.ok || !data.data) {
+          throw new Error(data.error || "Could not load available dates.");
+        }
+        const dates = data.data.dates || [];
+        setAvailableDates(dates);
+
+        if (dates.length > 0) {
+          setSelectedDate((prev) => {
+            const exists = dates.some((d) => d.date === prev);
+            return exists ? prev : dates[0].date;
+          });
+        } else {
+          setSelectedDate("");
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Unknown error loading dates.");
+        setAvailableDates([]);
+        setSelectedDate("");
+      } finally {
+        setLoadingDates(false);
+      }
+    };
+
+    void fetchDates();
+  }, [negocioId, selectedIds]);
+
+  useEffect(() => {
+    const fetchSlots = async () => {
+      if (!API_URL || !negocioId || selectedIds.length === 0 || !selectedDate) {
+        setAvailableSlots([]);
+        setSelectedSlotStart("");
+        setSelectedSlotEnd("");
+        return;
+      }
+      setLoadingSlots(true);
+      try {
+        const params = new URLSearchParams({
+          negocio_id: negocioId,
+          fecha: selectedDate,
+          servicio_ids: selectedIds.join(","),
+        });
+        const res = await fetch(`${API_URL}/api/reservas/public/disponibilidad?${params.toString()}`);
+        const data: DisponibilidadResponse = await res.json();
+        if (!res.ok || !data.ok || !data.data) {
+          throw new Error(data.error || "Could not load available slots.");
+        }
+        setAvailableSlots(data.data.slots || []);
+        setOccupiedMinutes(Number(data.data.occupied_minutes || 0));
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Unknown error loading slots.");
+        setAvailableSlots([]);
+      } finally {
+        setLoadingSlots(false);
+      }
+    };
+    void fetchSlots();
+  }, [negocioId, selectedDate, selectedIds]);
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
+
+    if (!API_URL || !negocioId) {
+      setError("API URL is not configured.");
+      return;
+    }
+
+    if (selectedIds.length === 0) {
+      setError("Please select at least one service.");
+      return;
+    }
+
+    if (!selectedSlotStart) {
+      setError("Please choose one available time slot.");
+      return;
+    }
+
+    const token =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem("access_token")
+        : null;
+
+    if (!token) {
+      setError("You must sign in as a client to create a reservation.");
+      return;
+    }
+
+    try {
+      const existingRes = await fetch(`${API_URL}/api/reservas/cliente/mis-reservas`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const existingData: MisReservasResponse = await existingRes.json().catch(() => ({ ok: false }));
+      if (existingRes.ok && existingData.ok && Array.isArray(existingData.data)) {
+        const now = new Date();
+        const activeUpcoming = existingData.data.filter((r) => {
+          const start = new Date(r.inicio_en);
+          return (
+            start > now &&
+            !["cancelada", "completada", "expirada"].includes(r.estado)
+          );
+        });
+
+        if (activeUpcoming.length > 0) {
+          const first = activeUpcoming[0];
+          const businessName = first.negocios?.nombre || "another business";
+          const message =
+            `You already have ${activeUpcoming.length} active reservation(s), including one in ${businessName}.\n\n` +
+            "Do you want to continue creating this reservation?\n" +
+            "Press Cancel to keep your current reservation flow only.";
+          const proceed = window.confirm(message);
+          if (!proceed) return;
+        }
+      }
+    } catch {
+      // If warning lookup fails, continue with normal reservation flow.
+    }
+
+    setSubmitting(true);
+    try {
+      const body = {
+        negocio_id: negocioId,
+        inicio_en: selectedSlotStart,
+        nota: note || null,
+        servicios: selectedIds.map((id) => ({ servicio_id: id, cantidad: 1 })),
+      };
+
+      const res = await fetch(`${API_URL}/api/reservas/cliente/reservas`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      const data: ReservaResponse = await res.json();
+
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Could not create reservation.");
+      }
+
+      setSuccess("Reservation created. You can review it in your client space.");
+      setTimeout(() => {
+        router.push("/client/reservations");
+      }, 1200);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unknown error creating reservation.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-[#050505] text-neutral-100 flex flex-col items-center px-4 py-10">
+      <div className="w-full max-w-3xl">
+        <ClientNav />
+        <button
+          type="button"
+          onClick={() => router.back()}
+          className="mb-4 text-xs text-neutral-400 hover:text-neutral-200"
+        >
+          ← Back
+        </button>
+
+        <header className="mb-6">
+          <h1 className="text-2xl font-semibold tracking-tight">Create reservation</h1>
+          <p className="mt-2 text-sm text-neutral-400">
+            Select services and then pick one available start time. End time is calculated automatically.
+          </p>
+        </header>
+
+        {error && (
+          <div className="mb-4 rounded-md border border-red-600/60 bg-red-950/40 px-3 py-2 text-sm text-red-200">
+            {error}
+          </div>
+        )}
+
+        {success && (
+          <div className="mb-4 rounded-md border border-emerald-600/60 bg-emerald-950/40 px-3 py-2 text-sm text-emerald-200">
+            {success}
+          </div>
+        )}
+
+        {loading ? (
+          <p className="text-sm text-neutral-400">Loading services...</p>
+        ) : services.length === 0 ? (
+          <p className="rounded-2xl border border-neutral-800 bg-[#060606] px-6 py-6 text-center text-sm text-neutral-400">
+            This business does not have services available.
+          </p>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <section className="space-y-3">
+              <h2 className="text-sm font-medium text-neutral-50">Services</h2>
+              <div className="space-y-2">
+                {services.map((s) => {
+                  const checked = selectedIds.includes(s.id);
+                  return (
+                    <label
+                      key={s.id}
+                      className={`flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 cursor-pointer transition ${
+                        checked
+                          ? "border-neutral-200 bg-neutral-900"
+                          : "border-neutral-800 bg-[#060606] hover:border-neutral-600 hover:bg-[#090909]"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={checked}
+                          onChange={() => toggleService(s.id)}
+                        />
+                        <div>
+                          <div className="text-sm font-medium text-neutral-50">
+                            {s.nombre}
+                          </div>
+                          <div className="mt-1 text-xs text-neutral-400">
+                            {s.duracion_min} min + {s.buffer_min ?? 0} min buffer · ${s.precio}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-xs text-neutral-400">
+                        {s.anticipo_tipo === "no_requiere"
+                          ? "No deposit"
+                          : s.anticipo_tipo === "fijo"
+                          ? `Deposit: $${s.anticipo_valor}`
+                          : `Deposit: ${s.anticipo_valor}%`}
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="grid gap-4 lg:grid-cols-[1.2fr_1fr]">
+              <div className="rounded-2xl border border-neutral-800 bg-[#060606] p-4">
+                <div className="mb-2 text-sm font-medium text-neutral-100">Choose date</div>
+                <p className="mb-3 text-xs text-neutral-500">
+                  Only dates with valid availability are shown.
+                </p>
+
+                {loadingDates ? (
+                  <p className="text-xs text-neutral-400">Loading available dates...</p>
+                ) : selectedIds.length === 0 ? (
+                  <p className="text-xs text-neutral-500">Select at least one service to see available dates.</p>
+                ) : availableDates.length === 0 ? (
+                  <p className="text-xs text-neutral-500">No dates available for selected services.</p>
+                ) : (
+                  <div className="max-h-72 space-y-4 overflow-y-auto pr-1">
+                    {groupedDates.map(([monthLabel, dates]) => (
+                      <div key={monthLabel}>
+                        <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                          {monthLabel}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                          {dates.map((d) => {
+                            const active = selectedDate === d.date;
+                            const label = new Date(`${d.date}T00:00:00`).toLocaleDateString([], {
+                              weekday: "short",
+                              day: "numeric",
+                            });
+                            return (
+                              <button
+                                key={d.date}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedDate(d.date);
+                                  setSelectedSlotStart("");
+                                  setSelectedSlotEnd("");
+                                }}
+                                className={`rounded-lg border px-3 py-2 text-left transition ${
+                                  active
+                                    ? "border-neutral-200 bg-neutral-100 text-black"
+                                    : "border-neutral-700 text-neutral-200 hover:bg-neutral-800"
+                                }`}
+                              >
+                                <div className="text-xs font-medium">{label}</div>
+                                <div className={`text-[11px] ${active ? "text-neutral-700" : "text-neutral-400"}`}>
+                                  {d.slots_count} slots
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-2xl border border-neutral-800 bg-[#060606] p-4">
+                <div className="mb-2 text-sm font-medium text-neutral-100">Available start times</div>
+                <p className="mb-3 text-xs text-neutral-500">
+                  {selectedDate
+                    ? new Date(`${selectedDate}T00:00:00`).toLocaleDateString([], {
+                        weekday: "long",
+                        month: "short",
+                        day: "numeric",
+                      })
+                    : "Pick a date first"}
+                </p>
+
+                {loadingSlots ? (
+                  <p className="text-xs text-neutral-400">Loading available slots...</p>
+                ) : !selectedDate || selectedIds.length === 0 ? (
+                  <p className="text-xs text-neutral-500">Select services and date to view availability.</p>
+                ) : availableSlots.length === 0 ? (
+                  <p className="text-xs text-neutral-500">No slots available for this date.</p>
+                ) : (
+                  <div className="max-h-72 overflow-y-auto pr-1">
+                    <div className="space-y-3">
+                      {groupedSlotsByBlock.map((group) => (
+                        <div key={group.block_key} className="rounded-xl border border-neutral-800 bg-[#050505] p-2.5">
+                          <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+                            Block {group.block_start} - {group.block_end}
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            {group.slots.map((slot) => {
+                              const active = selectedSlotStart === slot.start_iso;
+                              return (
+                                <button
+                                  key={slot.start_iso}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedSlotStart(slot.start_iso);
+                                    setSelectedSlotEnd(slot.end_iso);
+                                  }}
+                                  className={`rounded-lg border px-2 py-2 text-xs font-medium transition ${
+                                    active
+                                      ? "border-neutral-200 bg-neutral-100 text-black"
+                                      : "border-neutral-700 text-neutral-200 hover:bg-neutral-800"
+                                  }`}
+                                >
+                                  {slot.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {selectedSlotEnd ? (
+                  <p className="mt-3 text-xs text-neutral-400">
+                    Estimated end time:{" "}
+                    {new Date(selectedSlotEnd).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    {occupiedMinutes > 0 ? ` (${occupiedMinutes} min total)` : ""}
+                  </p>
+                ) : null}
+              </div>
+            </section>
+
+            <section className="space-y-1.5">
+              <label className="block text-sm text-neutral-300" htmlFor="note">
+                Note for the business (optional)
+              </label>
+              <textarea
+                id="note"
+                rows={3}
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none ring-0 transition focus:border-neutral-500 focus:bg-neutral-900 focus:ring-1 focus:ring-neutral-500"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+              />
+            </section>
+
+            <section className="rounded-2xl border border-neutral-800 bg-[#060606] px-6 py-4 text-sm text-neutral-200">
+              <div className="flex items-center justify-between">
+                <span>Total</span>
+                <span>${totalPrice.toFixed(2)}</span>
+              </div>
+              <div className="mt-1 flex items-center justify-between text-xs text-neutral-400">
+                <span>Deposit</span>
+                <span>${totalDeposit.toFixed(2)}</span>
+              </div>
+              <div className="mt-1 flex items-center justify-between text-xs text-neutral-400">
+                <span>Remaining at the business</span>
+                <span>${remaining.toFixed(2)}</span>
+              </div>
+            </section>
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="mt-2 flex h-10 items-center justify-center rounded-lg bg-neutral-50 px-6 text-sm font-medium text-black transition hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {submitting ? "Creating..." : "Confirm reservation"}
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+

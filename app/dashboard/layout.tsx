@@ -104,6 +104,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [userName, setUserName] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<"admin" | "staff" | null>(null);
 
   const handleLogout = async () => {
     if (typeof window !== "undefined") {
@@ -126,7 +127,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   };
 
   useEffect(() => {
-    const verifyAdmin = async () => {
+    const verifyPanelUser = async () => {
       if (!API_URL) {
         router.replace("/");
         return;
@@ -146,10 +147,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           return;
         }
         const data: MeResponse = await res.json();
-        if (!data.ok || !data.user || data.user.rol !== "admin") {
+        if (!data.ok || !data.user || !["admin", "staff"].includes(data.user.rol || "")) {
           router.replace("/");
           return;
         }
+        setUserRole(data.user.rol as "admin" | "staff");
         if (data.user.nombre) setUserName(data.user.nombre);
       } catch {
         router.replace("/");
@@ -157,7 +159,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         setCheckingAuth(false);
       }
     };
-    void verifyAdmin();
+    void verifyPanelUser();
   }, [router]);
 
   if (checkingAuth) {
@@ -181,27 +183,28 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <NavLink href="/dashboard" icon={<IconGrid />}>
               Dashboard
             </NavLink>
-            <NavLink href="/dashboard/business" icon={<IconStore />}>
-              My business
-            </NavLink>
             <NavLink href="/dashboard/services" icon={<IconScissors />}>
               Services
             </NavLink>
             <NavLink href="/dashboard/schedules" icon={<IconClock />}>
               Schedules
             </NavLink>
-            <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-neutral-500 cursor-not-allowed" disabled>
-              <IconBlock />
-              <span>Blocked dates</span>
-            </button>
-            <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-neutral-500 cursor-not-allowed" disabled>
-              <IconCalendar />
-              <span>Agenda</span>
-            </button>
-            <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-neutral-500 cursor-not-allowed" disabled>
-              <IconCard />
-              <span>Payments</span>
-            </button>
+            {userRole === "admin" ? (
+              <NavLink href="/dashboard/business" icon={<IconStore />}>
+                My business
+              </NavLink>
+            ) : null}
+            {userRole === "admin" ? (
+              <NavLink href="/dashboard/blocked" icon={<IconBlock />}>
+                Blocked dates
+              </NavLink>
+            ) : null}
+            <NavLink href="/dashboard/agenda" icon={<IconCalendar />}>
+              Agenda
+            </NavLink>
+            <NavLink href="/dashboard/payments" icon={<IconCard />}>
+              Payments
+            </NavLink>
           </nav>
         </aside>
 
@@ -209,7 +212,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <header className="flex items-center justify-between border-b border-neutral-900 px-5 py-4 md:px-8">
             <div className="text-xs text-neutral-400">
               {userName ? `${userName} - ` : ""}
-              <span className="font-medium text-neutral-100">admin</span>
+              <span className="font-medium text-neutral-100">{userRole ?? "panel"}</span>
             </div>
             <button
               type="button"

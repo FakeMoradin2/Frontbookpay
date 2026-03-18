@@ -18,25 +18,38 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     const handleCallback = async () => {
-      // Supabase ya procesa el código de OAuth automáticamente al inicializar el cliente.
-      // Aquí solo obtenemos la sesión resultante y guardamos los tokens para el backend.
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (session && typeof window !== "undefined") {
-        localStorage.setItem("access_token", session.access_token);
-        if (session.refresh_token) {
-          localStorage.setItem("refresh_token", session.refresh_token);
-        }
-      }
-
-      if (!API_URL || !session?.access_token) {
-        router.replace("/dashboard");
-        return;
-      }
-
       try {
+        // Supabase procesa el código/hash de OAuth cuando se llama a getSession
+        const {
+          data: { session },
+          error,
+        } = await supabase.auth.getSession();
+
+        if (error) {
+          // Si algo falla al obtener la sesión, volvemos a la pantalla inicial.
+          console.error("Error getting Supabase session in /auth/callback:", error);
+          router.replace("/");
+          return;
+        }
+
+        if (!session) {
+          // No se pudo crear sesión (por ejemplo, usuario canceló, o redirect mal configurado)
+          router.replace("/");
+          return;
+        }
+
+        if (typeof window !== "undefined") {
+          localStorage.setItem("access_token", session.access_token);
+          if (session.refresh_token) {
+            localStorage.setItem("refresh_token", session.refresh_token);
+          }
+        }
+
+        if (!API_URL || !session.access_token) {
+          router.replace("/dashboard");
+          return;
+        }
+
         const meRes = await fetch(`${API_URL}/api/auth/me`, {
           headers: {
             Authorization: `Bearer ${session.access_token}`,
@@ -51,12 +64,13 @@ export default function AuthCallbackPage() {
         const meData: MeResponse = await meRes.json();
 
         if (meData.ok && meData.user?.rol === "cliente") {
-          router.replace("/bienvenida");
+          router.replace("/client");
         } else {
           router.replace("/dashboard");
         }
-      } catch {
-        router.replace("/dashboard");
+      } catch (err) {
+        console.error("Unexpected error in /auth/callback:", err);
+        router.replace("/");
       }
     };
 

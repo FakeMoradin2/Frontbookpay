@@ -1,12 +1,13 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 
 type Servicio = {
   id: string;
   nombre: string;
   descripcion: string | null;
   duracion_min: number;
+  buffer_min: number | null;
   precio: number;
   anticipo_tipo: "fijo" | "porcentaje" | "no_requiere";
   anticipo_valor: number | null;
@@ -29,13 +30,14 @@ export default function ServicesPage() {
   const [nombre, setNombre] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [duracionMin, setDuracionMin] = useState("");
+  const [bufferMin, setBufferMin] = useState("");
   const [precio, setPrecio] = useState("");
   const [anticipoTipo, setAnticipoTipo] = useState<"fijo" | "porcentaje" | "no_requiere">("no_requiere");
   const [anticipoValor, setAnticipoValor] = useState("");
 
   const getToken = () => (typeof window !== "undefined" ? window.localStorage.getItem("access_token") : null);
 
-  const fetchServicios = async () => {
+  const fetchServicios = useCallback(async () => {
     if (!API_URL) return;
     const token = getToken();
     if (!token) return;
@@ -48,7 +50,7 @@ export default function ServicesPage() {
     if (data.ok && Array.isArray(data.data)) {
       setServicios(data.data);
     }
-  };
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -56,13 +58,14 @@ export default function ServicesPage() {
       setLoading(false);
     };
     void load();
-  }, []);
+  }, [fetchServicios]);
 
   const resetForm = () => {
     setNombre("");
     setDescripcion("");
     setDuracionMin("");
     setPrecio("");
+    setBufferMin("");
     setAnticipoTipo("no_requiere");
     setAnticipoValor("");
     setEditingId(null);
@@ -74,6 +77,7 @@ export default function ServicesPage() {
     setDescripcion(s.descripcion ?? "");
     setDuracionMin(String(s.duracion_min));
     setPrecio(String(s.precio));
+    setBufferMin(s.buffer_min != null ? String(s.buffer_min) : "0");
     setAnticipoTipo(s.anticipo_tipo);
     setAnticipoValor(s.anticipo_valor != null ? String(s.anticipo_valor) : "");
     setEditingId(s.id);
@@ -92,12 +96,17 @@ export default function ServicesPage() {
 
     const dur = parseInt(duracionMin, 10);
     const pr = parseFloat(precio);
+    const bf = parseInt(bufferMin || "0", 10);
     if (isNaN(dur) || dur <= 0) {
       setError("Duration must be greater than 0");
       return;
     }
     if (isNaN(pr) || pr < 0) {
       setError("Price must be 0 or greater");
+      return;
+    }
+    if (isNaN(bf) || bf < 0) {
+      setError("Buffer must be 0 or greater");
       return;
     }
 
@@ -123,6 +132,7 @@ export default function ServicesPage() {
         nombre: nombre.trim(),
         descripcion: descripcion.trim() || null,
         duracion_min: dur,
+        buffer_min: bf,
         precio: pr,
         anticipo_tipo: anticipoTipo,
         anticipo_valor: anticipoTipo === "no_requiere" ? null : parseFloat(anticipoValor),
@@ -249,7 +259,7 @@ export default function ServicesPage() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-3 gap-4">
             <div className="space-y-1.5">
               <label className="block text-sm text-neutral-300" htmlFor="duracion">
                 Duration (min) *
@@ -263,6 +273,21 @@ export default function ServicesPage() {
                 placeholder="30"
                 value={duracionMin}
                 onChange={(e) => setDuracionMin(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="block text-sm text-neutral-300" htmlFor="bufferMin">
+                Buffer (min)
+              </label>
+              <input
+                id="bufferMin"
+                type="number"
+                min={0}
+                required
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none ring-0 transition focus:border-neutral-500 focus:bg-neutral-900 focus:ring-1 focus:ring-neutral-500"
+                placeholder="0"
+                value={bufferMin}
+                onChange={(e) => setBufferMin(e.target.value)}
               />
             </div>
             <div className="space-y-1.5">
@@ -364,7 +389,7 @@ export default function ServicesPage() {
               <div>
                 <div className="font-medium text-neutral-50">{s.nombre}</div>
                 <div className="mt-1 text-xs text-neutral-400">
-                  {s.duracion_min} min · ${s.precio} · {formatDeposit(s)}
+                  {s.duracion_min} min + {s.buffer_min ?? 0} min buffer · ${s.precio} · {formatDeposit(s)}
                 </div>
                 {s.descripcion && (
                   <p className="mt-1 text-xs text-neutral-500 line-clamp-2">{s.descripcion}</p>

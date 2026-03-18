@@ -92,7 +92,7 @@ export default function LoginPage() {
         const meData: MeResponse = await meRes.json();
 
         if (meData.ok && meData.user?.rol === "cliente") {
-          router.push("/bienvenida");
+          router.push("/client");
         } else {
           router.push("/dashboard");
         }
@@ -154,7 +154,7 @@ export default function LoginPage() {
         <div className="mb-6">
           <h2 className="text-lg font-medium">Sign in</h2>
           <p className="mt-1 text-sm text-neutral-400">
-            Administrator email and password
+            Email and password
           </p>
         </div>
 

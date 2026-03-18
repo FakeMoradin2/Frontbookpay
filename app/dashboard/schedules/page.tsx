@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 
 type Horario = {
   id: string;
@@ -26,6 +26,7 @@ export default function SchedulesPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [horarios, setHorarios] = useState<Horario[]>([]);
@@ -37,7 +38,7 @@ export default function SchedulesPage() {
 
   const getToken = () => (typeof window !== "undefined" ? window.localStorage.getItem("access_token") : null);
 
-  const fetchHorarios = async () => {
+  const fetchHorarios = useCallback(async () => {
     if (!API_URL) return;
     const token = getToken();
     if (!token) return;
@@ -50,7 +51,7 @@ export default function SchedulesPage() {
     if (data.ok && Array.isArray(data.data)) {
       setHorarios(data.data);
     }
-  };
+  }, []);
 
   useEffect(() => {
     const load = async () => {
@@ -58,13 +59,22 @@ export default function SchedulesPage() {
       setLoading(false);
     };
     void load();
-  }, []);
+  }, [fetchHorarios]);
 
   const resetForm = () => {
     setDiaSemana("lun");
     setHoraInicio("09:00");
     setHoraFin("18:00");
+    setEditingId(null);
     setShowForm(false);
+  };
+
+  const fillFormForEdit = (h: Horario) => {
+    setDiaSemana(h.dia_semana);
+    setHoraInicio(h.hora_inicio);
+    setHoraFin(h.hora_fin);
+    setEditingId(h.id);
+    setShowForm(true);
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -83,8 +93,13 @@ export default function SchedulesPage() {
 
     setSaving(true);
     try {
-      const res = await fetch(`${API_URL}/api/horarios/admin/horarios`, {
-        method: "POST",
+      const endpoint = editingId
+        ? `${API_URL}/api/horarios/admin/horarios/${editingId}`
+        : `${API_URL}/api/horarios/admin/horarios`;
+      const method = editingId ? "PATCH" : "POST";
+
+      const res = await fetch(endpoint, {
+        method,
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
           dia_semana: diaSemana,
@@ -94,8 +109,8 @@ export default function SchedulesPage() {
         }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Could not create schedule");
-      setSuccess("Schedule added successfully");
+      if (!res.ok) throw new Error(data.error || (editingId ? "Could not update schedule" : "Could not create schedule"));
+      setSuccess(editingId ? "Schedule updated successfully" : "Schedule added successfully");
       await fetchHorarios();
       resetForm();
     } catch (err) {
@@ -165,7 +180,7 @@ export default function SchedulesPage() {
         </button>
       ) : (
         <form onSubmit={handleSubmit} className="mb-8 max-w-xl space-y-4 rounded-2xl border border-neutral-800 bg-[#060606] p-6">
-          <h2 className="text-sm font-medium">New schedule block</h2>
+          <h2 className="text-sm font-medium">{editingId ? "Edit schedule block" : "New schedule block"}</h2>
 
           <div className="space-y-1.5">
             <label className="block text-sm text-neutral-300" htmlFor="dia_semana">
@@ -218,7 +233,7 @@ export default function SchedulesPage() {
               disabled={saving}
               className="flex h-10 items-center justify-center rounded-lg bg-neutral-50 px-4 text-sm font-medium text-black transition hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {saving ? "Adding..." : "Add block"}
+              {saving ? (editingId ? "Updating..." : "Adding...") : editingId ? "Update block" : "Add block"}
             </button>
             <button
               type="button"
@@ -252,14 +267,23 @@ export default function SchedulesPage() {
                       <span className="text-sm text-neutral-300">
                         {h.hora_inicio} – {h.hora_fin}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(h.id)}
-                        disabled={deleting === h.id}
-                        className="text-xs font-medium text-red-400 transition hover:text-red-300 disabled:opacity-50"
-                      >
-                        {deleting === h.id ? "Removing..." : "Remove"}
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => fillFormForEdit(h)}
+                          className="rounded-md border border-neutral-700 px-2 py-1 text-xs font-medium text-neutral-200 transition hover:bg-neutral-800"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(h.id)}
+                          disabled={deleting === h.id}
+                          className="text-xs font-medium text-red-400 transition hover:text-red-300 disabled:opacity-50"
+                        >
+                          {deleting === h.id ? "Removing..." : "Remove"}
+                        </button>
+                      </div>
                     </div>
                   ))
                 )}

@@ -2,17 +2,6 @@
 
 import { FormEvent, useEffect, useState } from "react";
 
-type Negocio = {
-  id: string;
-  nombre: string | null;
-  telefono: string | null;
-  correo: string | null;
-  zona_horaria: string | null;
-  duracion_buffer_min: number | null;
-  imagen: string | null;
-  activo: boolean;
-};
-
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 const COMMON_TIMEZONES = [
@@ -34,7 +23,6 @@ export default function BusinessPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [negocio, setNegocio] = useState<Negocio | null>(null);
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
   const [correo, setCorreo] = useState("");
@@ -60,7 +48,6 @@ export default function BusinessPage() {
         const data = await res.json();
         if (data.ok && data.data) {
           const n = data.data;
-          setNegocio(n);
           setNombre(n.nombre ?? "");
           setTelefono(n.telefono ?? "");
           setCorreo(n.correo ?? "");
@@ -116,7 +103,6 @@ export default function BusinessPage() {
       }
 
       setSuccess(true);
-      if (data.data) setNegocio(data.data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error");
     } finally {

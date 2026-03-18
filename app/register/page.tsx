@@ -21,6 +21,8 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [inviteCode, setInviteCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,6 +45,11 @@ export default function RegisterPage() {
       return;
     }
 
+    if (isAdmin && !inviteCode.trim()) {
+      setError("Invite code is required for admin registration.");
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -51,7 +58,13 @@ export default function RegisterPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ nombre, email, password }),
+        body: JSON.stringify({
+          nombre,
+          email,
+          password,
+          rol: isAdmin ? "admin" : "cliente",
+          invite_code: isAdmin ? inviteCode.trim() : undefined,
+        }),
       });
 
       const data: RegisterResponse = await res.json();
@@ -69,7 +82,11 @@ export default function RegisterPage() {
         }
       }
 
-      router.push("/dashboard");
+      if (isAdmin) {
+        router.push("/");
+      } else {
+        router.push("/client");
+      }
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Unknown error creating account.";
@@ -85,8 +102,7 @@ export default function RegisterPage() {
         <div className="mb-8 text-center">
           <h1 className="text-xl font-semibold tracking-tight">Create account</h1>
           <p className="mt-1 text-sm text-neutral-400">
-            Sign up to book. Your profile in the database is created
-            automatically.
+            Sign up as client or admin. Admin registrations require an invite code.
           </p>
         </div>
 
@@ -97,6 +113,34 @@ export default function RegisterPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-1.5">
+            <label className="block text-sm text-neutral-300">Account type</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setIsAdmin(false)}
+                className={`h-10 rounded-lg border text-sm font-medium transition ${
+                  !isAdmin
+                    ? "border-neutral-200 bg-neutral-100 text-black"
+                    : "border-neutral-700 text-neutral-200 hover:bg-neutral-800"
+                }`}
+              >
+                Client
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsAdmin(true)}
+                className={`h-10 rounded-lg border text-sm font-medium transition ${
+                  isAdmin
+                    ? "border-neutral-200 bg-neutral-100 text-black"
+                    : "border-neutral-700 text-neutral-200 hover:bg-neutral-800"
+                }`}
+              >
+                Admin
+              </button>
+            </div>
+          </div>
+
           <div className="space-y-1.5">
             <label className="block text-sm text-neutral-300" htmlFor="nombre">
               Name
@@ -160,12 +204,27 @@ export default function RegisterPage() {
             />
           </div>
 
+          {isAdmin ? (
+            <div className="space-y-1.5">
+              <label className="block text-sm text-neutral-300" htmlFor="inviteCode">
+                Admin invite code
+              </label>
+              <input
+                id="inviteCode"
+                type="text"
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none ring-0 transition focus:border-neutral-500 focus:bg-neutral-900 focus:ring-1 focus:ring-neutral-500"
+                value={inviteCode}
+                onChange={(e) => setInviteCode(e.target.value)}
+              />
+            </div>
+          ) : null}
+
           <button
             type="submit"
             disabled={loading}
             className="mt-2 flex h-10 w-full items-center justify-center rounded-lg bg-neutral-50 text-sm font-medium text-black transition hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {loading ? "Creating account..." : "Create account"}
+            {loading ? "Creating account..." : isAdmin ? "Create admin account" : "Create client account"}
           </button>
         </form>
 

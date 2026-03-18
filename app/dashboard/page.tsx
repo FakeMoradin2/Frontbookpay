@@ -132,19 +132,19 @@ export default function DashboardPage() {
           title="Blocked dates"
           description="Unavailable dates"
           icon={<IconBlock className="h-6 w-6 text-neutral-100" />}
-          disabled
+          href="/dashboard/blocked"
         />
         <DashboardCard
           title="Agenda"
           description="Bookings and status"
           icon={<IconCalendar className="h-6 w-6 text-neutral-100" />}
-          disabled
+          href="/dashboard/agenda"
         />
         <DashboardCard
           title="Payments"
           description="Deposits and payments"
           icon={<IconCard className="h-6 w-6 text-neutral-100" />}
-          disabled
+          href="/dashboard/payments"
         />
       </section>
     </>
