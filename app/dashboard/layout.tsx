@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
+import { supabase } from "@/lib/supabaseClient";
 
 type MeResponse = {
   ok: boolean;
@@ -116,6 +117,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             headers: { Authorization: `Bearer ${token}` },
           });
         }
+      } catch {
+        /* ignore */
+      }
+      try {
+        await supabase.auth.signOut();
       } catch {
         /* ignore */
       } finally {

@@ -21,8 +21,6 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [inviteCode, setInviteCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,17 +34,12 @@ export default function RegisterPage() {
     }
 
     if (!nombre || !email || !password || !password2) {
-      setError("Please complete all fields.");
+      setError("Please fill in all fields.");
       return;
     }
 
     if (password !== password2) {
       setError("Passwords do not match.");
-      return;
-    }
-
-    if (isAdmin && !inviteCode.trim()) {
-      setError("Invite code is required for admin registration.");
       return;
     }
 
@@ -60,17 +53,28 @@ export default function RegisterPage() {
         },
         body: JSON.stringify({
           nombre,
-          email,
+          email: email.trim().toLowerCase(),
           password,
-          rol: isAdmin ? "admin" : "cliente",
-          invite_code: isAdmin ? inviteCode.trim() : undefined,
+          rol: "cliente",
         }),
       });
 
       const data: RegisterResponse = await res.json();
 
       if (!res.ok || !data.ok) {
-        throw new Error(data.error || "Could not create account.");
+        const msg =
+          data.error ||
+          (res.status === 409
+            ? "This email is already registered. Sign in or use a different email."
+            : "Could not create account.");
+        throw new Error(msg);
+      }
+
+      if (!data.access_token) {
+        setError(
+          "Account created. Please check your email to confirm your address, then sign in."
+        );
+        return;
       }
 
       if (typeof window !== "undefined") {
@@ -82,11 +86,7 @@ export default function RegisterPage() {
         }
       }
 
-      if (isAdmin) {
-        router.push("/");
-      } else {
-        router.push("/client");
-      }
+      router.push("/client");
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Unknown error creating account.";
@@ -100,9 +100,15 @@ export default function RegisterPage() {
     <div className="min-h-screen bg-[#050505] text-neutral-100 flex items-center justify-center px-4">
       <div className="w-full max-w-md rounded-2xl border border-neutral-800 bg-black/60 px-8 py-10 shadow-xl backdrop-blur">
         <div className="mb-8 text-center">
-          <h1 className="text-xl font-semibold tracking-tight">Create account</h1>
+          <Link href="/" className="text-lg font-semibold tracking-tight hover:underline">
+            Book&Pay
+          </Link>
+          <h1 className="mt-4 text-xl font-semibold tracking-tight">Create account (Client)</h1>
           <p className="mt-1 text-sm text-neutral-400">
-            Sign up as client or admin. Admin registrations require an invite code.
+            Sign up free to book appointments. Need an admin panel?{" "}
+            <Link href="/pricing" className="font-medium text-neutral-200 hover:underline">
+              View plans
+            </Link>
           </p>
         </div>
 
@@ -113,34 +119,6 @@ export default function RegisterPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
-            <label className="block text-sm text-neutral-300">Account type</label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setIsAdmin(false)}
-                className={`h-10 rounded-lg border text-sm font-medium transition ${
-                  !isAdmin
-                    ? "border-neutral-200 bg-neutral-100 text-black"
-                    : "border-neutral-700 text-neutral-200 hover:bg-neutral-800"
-                }`}
-              >
-                Client
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsAdmin(true)}
-                className={`h-10 rounded-lg border text-sm font-medium transition ${
-                  isAdmin
-                    ? "border-neutral-200 bg-neutral-100 text-black"
-                    : "border-neutral-700 text-neutral-200 hover:bg-neutral-800"
-                }`}
-              >
-                Admin
-              </button>
-            </div>
-          </div>
-
           <div className="space-y-1.5">
             <label className="block text-sm text-neutral-300" htmlFor="nombre">
               Name
@@ -164,7 +142,7 @@ export default function RegisterPage() {
               type="email"
               autoComplete="email"
               className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none ring-0 transition focus:border-neutral-500 focus:bg-neutral-900 focus:ring-1 focus:ring-neutral-500"
-              placeholder="email@example.com"
+              placeholder="you@email.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
@@ -180,6 +158,7 @@ export default function RegisterPage() {
             <input
               id="password"
               type="password"
+              placeholder="Minimum 6 characters"
               autoComplete="new-password"
               className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none ring-0 transition focus:border-neutral-500 focus:bg-neutral-900 focus:ring-1 focus:ring-neutral-500"
               value={password}
@@ -204,37 +183,27 @@ export default function RegisterPage() {
             />
           </div>
 
-          {isAdmin ? (
-            <div className="space-y-1.5">
-              <label className="block text-sm text-neutral-300" htmlFor="inviteCode">
-                Admin invite code
-              </label>
-              <input
-                id="inviteCode"
-                type="text"
-                className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none ring-0 transition focus:border-neutral-500 focus:bg-neutral-900 focus:ring-1 focus:ring-neutral-500"
-                value={inviteCode}
-                onChange={(e) => setInviteCode(e.target.value)}
-              />
-            </div>
-          ) : null}
-
           <button
             type="submit"
             disabled={loading}
             className="mt-2 flex h-10 w-full items-center justify-center rounded-lg bg-neutral-50 text-sm font-medium text-black transition hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {loading ? "Creating account..." : isAdmin ? "Create admin account" : "Create client account"}
+            {loading ? "Creating account..." : "Create free account"}
           </button>
         </form>
 
         <p className="mt-6 text-center text-xs text-neutral-500">
           Already have an account?{" "}
           <Link
-            href="/"
+            href="/login"
             className="font-medium text-neutral-200 hover:underline"
           >
             Sign in
+          </Link>
+        </p>
+        <p className="mt-2 text-center text-xs text-neutral-500">
+          <Link href="/" className="font-medium text-neutral-400 hover:underline">
+            ← Back to home
           </Link>
         </p>
       </div>

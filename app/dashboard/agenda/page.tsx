@@ -64,7 +64,7 @@ function toLocalDateTimeInput(date: Date) {
 }
 
 function formatWeekday(dateIso: string) {
-  const label = new Intl.DateTimeFormat("es-MX", { weekday: "long" }).format(
+  const label = new Intl.DateTimeFormat("en-US", { weekday: "long" }).format(
     new Date(`${dateIso}T00:00:00`)
   );
   return label.charAt(0).toUpperCase() + label.slice(1);

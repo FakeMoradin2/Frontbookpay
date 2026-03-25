@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 
 function NavItem({ href, label }: { href: string; label: string }) {
   const pathname = usePathname();
@@ -23,7 +24,12 @@ function NavItem({ href, label }: { href: string; label: string }) {
 export default function ClientNav() {
   const router = useRouter();
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      /* ignore */
+    }
     if (typeof window !== "undefined") {
       window.localStorage.removeItem("access_token");
       window.localStorage.removeItem("refresh_token");
@@ -34,11 +40,11 @@ export default function ClientNav() {
   return (
     <header className="mb-6 rounded-2xl border border-neutral-800 bg-[#060606] px-4 py-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="text-sm font-semibold tracking-tight text-neutral-50">BookAndPay Client</div>
+        <Link href="/" className="text-sm font-semibold tracking-tight text-neutral-50 hover:underline">Book&Pay</Link>
         <button
           type="button"
           onClick={handleLogout}
-          className="rounded-full border border-neutral-700 px-3 py-1 text-[11px] text-neutral-300 transition hover:bg-neutral-800"
+          className="rounded-full border border-neutral-700 px-3 py-1 text-[11px] bg-neutral-100 text-black hover:bg-gray-400"
         >
           Logout
         </button>

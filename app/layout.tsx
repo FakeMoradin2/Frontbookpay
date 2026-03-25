@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "BookAndPay",
-  description: "BookAndPay administrator panel",
+  title: "Book&Pay - Book and pay in one place",
+  description: "Platform to book appointments, manage services, and accept payments. Book&Pay connects businesses with their customers.",
 };
 
 export default function RootLayout({
