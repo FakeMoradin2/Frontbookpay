@@ -1,6 +1,8 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+import { uploadNewServicioImage, uploadServicioImage } from "@/lib/storage-upload";
 
 type Servicio = {
   id: string;
@@ -34,8 +36,23 @@ export default function ServicesPage() {
   const [precio, setPrecio] = useState("");
   const [anticipoTipo, setAnticipoTipo] = useState<"fijo" | "porcentaje" | "no_requiere">("no_requiere");
   const [anticipoValor, setAnticipoValor] = useState("");
+  const [negocioId, setNegocioId] = useState<string | null>(null);
+  const [stripeDepositsReady, setStripeDepositsReady] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagenUrlForm, setImagenUrlForm] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const getToken = () => (typeof window !== "undefined" ? window.localStorage.getItem("access_token") : null);
+
+  useEffect(() => {
+    if (!imageFile) {
+      setPreviewUrl(null);
+      return;
+    }
+    const u = URL.createObjectURL(imageFile);
+    setPreviewUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [imageFile]);
 
   const fetchServicios = useCallback(async () => {
     if (!API_URL) return;
@@ -54,13 +71,44 @@ export default function ServicesPage() {
 
   useEffect(() => {
     const load = async () => {
+      if (!API_URL) {
+        setLoading(false);
+        return;
+      }
+      const token = getToken();
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+      const meRes = await fetch(`${API_URL}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (meRes.ok) {
+        const me = await meRes.json();
+        if (me.ok && typeof me.user?.negocio_id === "string") {
+          setNegocioId(me.user.negocio_id);
+        }
+      }
+      const negRes = await fetch(`${API_URL}/api/negocios/admin/negocio`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const negData = await negRes.json().catch(() => ({}));
+      if (negRes.ok && negData.ok && negData.data) {
+        const n = negData.data as {
+          stripe_connect_account_id?: string | null;
+          stripe_connect_charges_enabled?: boolean | null;
+        };
+        setStripeDepositsReady(
+          !!n.stripe_connect_account_id && !!n.stripe_connect_charges_enabled
+        );
+      }
       await fetchServicios();
       setLoading(false);
     };
     void load();
   }, [fetchServicios]);
 
-  const resetForm = () => {
+  const clearFormFields = () => {
     setNombre("");
     setDescripcion("");
     setDuracionMin("");
@@ -69,6 +117,12 @@ export default function ServicesPage() {
     setAnticipoTipo("no_requiere");
     setAnticipoValor("");
     setEditingId(null);
+    setImageFile(null);
+    setImagenUrlForm(null);
+  };
+
+  const resetForm = () => {
+    clearFormFields();
     setShowForm(false);
   };
 
@@ -82,6 +136,8 @@ export default function ServicesPage() {
     setAnticipoValor(s.anticipo_valor != null ? String(s.anticipo_valor) : "");
     setEditingId(s.id);
     setShowForm(true);
+    setImageFile(null);
+    setImagenUrlForm(s.imagen_url ?? null);
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -109,8 +165,16 @@ export default function ServicesPage() {
       setError("Buffer must be 0 or greater");
       return;
     }
+    if (bf > 30) {
+      setError("Buffer must be less than 30 minutes");
+      return;
+    }
 
     if (anticipoTipo !== "no_requiere") {
+      if (!stripeDepositsReady) {
+        setError("Connect Stripe under Payments before requiring a deposit.");
+        return;
+      }
       const av = parseFloat(anticipoValor);
       if (anticipoTipo === "fijo" && (isNaN(av) || av <= 0)) {
         setError("Deposit value must be greater than 0");
@@ -128,6 +192,18 @@ export default function ServicesPage() {
 
     setSaving(true);
     try {
+      let imagen_url: string | null | undefined;
+      if (imageFile) {
+        if (!negocioId) {
+          throw new Error("Business context not loaded. Refresh the page.");
+        }
+        imagen_url = editingId
+          ? await uploadServicioImage(negocioId, editingId, imageFile)
+          : await uploadNewServicioImage(negocioId, imageFile);
+      } else {
+        imagen_url = imagenUrlForm;
+      }
+
       const body: Record<string, unknown> = {
         nombre: nombre.trim(),
         descripcion: descripcion.trim() || null,
@@ -137,6 +213,9 @@ export default function ServicesPage() {
         anticipo_tipo: anticipoTipo,
         anticipo_valor: anticipoTipo === "no_requiere" ? null : parseFloat(anticipoValor),
       };
+      if (imagen_url !== undefined) {
+        body.imagen_url = imagen_url;
+      }
 
       if (editingId) {
         const res = await fetch(`${API_URL}/api/servicios/admin/servicios/${editingId}`, {
@@ -221,7 +300,10 @@ export default function ServicesPage() {
       {!showForm ? (
         <button
           type="button"
-          onClick={() => setShowForm(true)}
+          onClick={() => {
+            clearFormFields();
+            setShowForm(true);
+          }}
           className="mb-4 flex h-10 items-center justify-center rounded-lg bg-neutral-50 px-4 text-sm font-medium text-black transition hover:bg-neutral-200"
         >
           Add service
@@ -257,6 +339,45 @@ export default function ServicesPage() {
               value={descripcion}
               onChange={(e) => setDescripcion(e.target.value)}
             />
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm text-neutral-300">Image</label>
+            <p className="text-xs text-neutral-500">Optional. JPG, PNG, WebP or GIF, up to 5 MB.</p>
+            {(previewUrl || imagenUrlForm) && (
+              <img
+                src={previewUrl ?? imagenUrlForm ?? undefined}
+                alt=""
+                className="h-28 w-28 rounded-lg border border-neutral-800 object-cover"
+              />
+            )}
+            <div className="flex flex-wrap gap-2">
+              <label className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-neutral-700 px-3 py-2 text-xs font-medium text-neutral-200 transition hover:bg-neutral-800">
+                Choose file
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  className="sr-only"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = "";
+                    setImageFile(f ?? null);
+                  }}
+                />
+              </label>
+              {(previewUrl || imagenUrlForm) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setImageFile(null);
+                    setImagenUrlForm(null);
+                  }}
+                  className="rounded-lg border border-neutral-700 px-3 py-2 text-xs text-neutral-400 hover:bg-neutral-800"
+                >
+                  Remove image
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-3 gap-4">
@@ -310,6 +431,15 @@ export default function ServicesPage() {
 
           <div className="space-y-2">
             <label className="block text-sm text-neutral-300">Deposit</label>
+            {!stripeDepositsReady ? (
+              <p className="text-xs text-amber-200/90">
+                Fixed or percentage deposits require Stripe Connect (charges enabled).{" "}
+                <Link href="/dashboard/payments" className="font-medium underline hover:text-amber-100">
+                  Configure in Payments
+                </Link>
+                .
+              </p>
+            ) : null}
             <div className="flex flex-wrap gap-3">
               <label className="flex items-center gap-2">
                 <input
@@ -320,25 +450,40 @@ export default function ServicesPage() {
                 />
                 <span className="text-sm">No deposit</span>
               </label>
-              <label className="flex items-center gap-2">
+              <label
+                className={`flex items-center gap-2 ${!stripeDepositsReady ? "cursor-not-allowed opacity-50" : ""}`}
+              >
                 <input
                   type="radio"
                   name="anticipo"
+                  disabled={!stripeDepositsReady}
                   checked={anticipoTipo === "fijo"}
                   onChange={() => setAnticipoTipo("fijo")}
                 />
                 <span className="text-sm">Fixed amount</span>
               </label>
-              <label className="flex items-center gap-2">
+              <label
+                className={`flex items-center gap-2 ${!stripeDepositsReady ? "cursor-not-allowed opacity-50" : ""}`}
+              >
                 <input
                   type="radio"
                   name="anticipo"
+                  disabled={!stripeDepositsReady}
                   checked={anticipoTipo === "porcentaje"}
                   onChange={() => setAnticipoTipo("porcentaje")}
                 />
                 <span className="text-sm">Percentage</span>
               </label>
             </div>
+            {showForm && !stripeDepositsReady && (anticipoTipo === "fijo" || anticipoTipo === "porcentaje") && (
+              <div className="rounded-md border border-amber-700/50 bg-amber-950/30 px-3 py-2 text-xs text-amber-100">
+                This service has a deposit rule, but Stripe is not ready to charge online. Go to{" "}
+                <Link href="/dashboard/payments" className="font-medium underline hover:text-amber-50">
+                  Payments
+                </Link>{" "}
+                to finish Stripe setup, or switch to &quot;No deposit&quot; to save other fields.
+              </div>
+            )}
             {(anticipoTipo === "fijo" || anticipoTipo === "porcentaje") && (
               <input
                 type="number"
@@ -384,9 +529,21 @@ export default function ServicesPage() {
           servicios.map((s) => (
             <div
               key={s.id}
-              className="flex flex-col gap-3 rounded-2xl border border-neutral-800 bg-[#060606] px-6 py-4 sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-3 rounded-2xl border border-neutral-800 bg-[#060606] px-6 py-4 sm:flex-row sm:items-start sm:justify-between"
             >
-              <div>
+              <div className="flex gap-4">
+                {s.imagen_url ? (
+                  <img
+                    src={s.imagen_url}
+                    alt=""
+                    className="h-16 w-16 shrink-0 rounded-lg border border-neutral-800 object-cover"
+                  />
+                ) : (
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg border border-dashed border-neutral-700 bg-neutral-900/40 text-[10px] text-neutral-600">
+                    No img
+                  </div>
+                )}
+                <div>
                 <div className="font-medium text-neutral-50">{s.nombre}</div>
                 <div className="mt-1 text-xs text-neutral-400">
                   {s.duracion_min} min + {s.buffer_min ?? 0} min buffer · ${s.precio} · {formatDeposit(s)}
@@ -394,8 +551,9 @@ export default function ServicesPage() {
                 {s.descripcion && (
                   <p className="mt-1 text-xs text-neutral-500 line-clamp-2">{s.descripcion}</p>
                 )}
+                </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2 sm:shrink-0">
                 <button
                   type="button"
                   onClick={() => fillFormForEdit(s)}

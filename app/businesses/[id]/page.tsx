@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import ClientNav from "@/components/ClientNav";
+import ListingThumb from "@/components/ListingThumb";
 
 type Negocio = {
   id: string;
@@ -10,6 +11,7 @@ type Negocio = {
   zona_horaria: string | null;
   telefono: string | null;
   correo: string | null;
+  imagen_url?: string | null;
 };
 
 type Servicio = {
@@ -17,7 +19,9 @@ type Servicio = {
   nombre: string;
   descripcion: string | null;
   duracion_min: number;
+  buffer_min?: number | null;
   precio: number;
+  imagen_url?: string | null;
   anticipo_tipo: "fijo" | "porcentaje" | "no_requiere";
   anticipo_valor: number | null;
 };
@@ -109,6 +113,15 @@ export default function BusinessDetailPage() {
           <p className="text-sm text-neutral-400">Business not found.</p>
         ) : (
           <>
+            {negocio.imagen_url ? (
+              <div className="mb-6 overflow-hidden rounded-2xl border border-neutral-800">
+                <img
+                  src={negocio.imagen_url}
+                  alt=""
+                  className="aspect-[21/9] w-full object-cover md:aspect-[3/1]"
+                />
+              </div>
+            ) : null}
             <header className="mb-6">
               <h1 className="text-2xl font-semibold tracking-tight">{negocio.nombre}</h1>
               {negocio.zona_horaria && (
@@ -146,14 +159,19 @@ export default function BusinessDetailPage() {
                       key={s.id}
                       className="rounded-2xl border border-neutral-800 bg-[#060606] px-6 py-4"
                     >
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <h3 className="text-sm font-medium text-neutral-50">{s.nombre}</h3>
-                          <p className="mt-1 text-xs text-neutral-400">
-                            {s.duracion_min} min · ${s.precio}
-                          </p>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 flex-1 items-start gap-4">
+                          <ListingThumb url={s.imagen_url} label={s.nombre} size="lg" />
+                          <div className="min-w-0">
+                            <h3 className="text-sm font-medium text-neutral-50">{s.nombre}</h3>
+                            <p className="mt-1 text-xs text-neutral-400">
+                              {s.duracion_min} min
+                              {s.buffer_min != null && s.buffer_min > 0 ? ` + ${s.buffer_min} min buffer` : ""} · $
+                              {s.precio}
+                            </p>
+                          </div>
                         </div>
-                        <div className="text-xs text-neutral-400">
+                        <div className="shrink-0 text-xs text-neutral-400">
                           {s.anticipo_tipo === "no_requiere"
                             ? "No deposit"
                             : s.anticipo_tipo === "fijo"
@@ -162,7 +180,7 @@ export default function BusinessDetailPage() {
                         </div>
                       </div>
                       {s.descripcion && (
-                        <p className="mt-2 text-xs text-neutral-400">{s.descripcion}</p>
+                        <p className="mt-3 text-xs text-neutral-400">{s.descripcion}</p>
                       )}
                     </div>
                   ))}

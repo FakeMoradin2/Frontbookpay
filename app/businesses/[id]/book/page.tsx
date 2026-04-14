@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import ClientNav from "@/components/ClientNav";
+import ListingThumb from "@/components/ListingThumb";
 
 type Servicio = {
   id: string;
@@ -10,6 +11,7 @@ type Servicio = {
   duracion_min: number;
   buffer_min: number | null;
   precio: number;
+  imagen_url?: string | null;
   anticipo_tipo: "fijo" | "porcentaje" | "no_requiere";
   anticipo_valor: number | null;
 };
@@ -20,9 +22,21 @@ type ServiciosResponse = {
   error?: string;
 };
 
+type CreateReservaPayload = {
+  reserva?: { id: string };
+  can_pay_deposit_online?: boolean;
+  deposit_amount?: number;
+};
+
 type ReservaResponse = {
   ok: boolean;
-  data?: unknown;
+  data?: CreateReservaPayload;
+  error?: string;
+};
+
+type DepositCheckoutResponse = {
+  ok: boolean;
+  url?: string;
   error?: string;
 };
 
@@ -348,6 +362,35 @@ export default function BusinessBookPage() {
         throw new Error(data.error || "Could not create reservation.");
       }
 
+      const payload = data.data;
+      const reservaId = payload?.reserva?.id;
+      const canPayOnline = !!payload?.can_pay_deposit_online && !!reservaId;
+
+      if (canPayOnline) {
+        const payRes = await fetch(`${API_URL}/api/stripe/deposit-checkout`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ reserva_id: reservaId }),
+        });
+        const payData: DepositCheckoutResponse = await payRes.json().catch(() => ({}));
+        if (payRes.ok && payData.ok && typeof payData.url === "string") {
+          window.location.href = payData.url;
+          return;
+        }
+        setError(
+          payData.error ||
+            "Your reservation was created but the card payment page could not be opened. You can review it under My reservations."
+        );
+        setSuccess("Reservation saved as pending payment.");
+        setTimeout(() => {
+          router.push("/client/reservations");
+        }, 2800);
+        return;
+      }
+
       setSuccess("Reservation created. You can review it in your client space.");
       setTimeout(() => {
         router.push("/client/reservations");
@@ -412,14 +455,15 @@ export default function BusinessBookPage() {
                           : "border-neutral-800 bg-[#060606] hover:border-neutral-600 hover:bg-[#090909]"
                       }`}
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
                         <input
                           type="checkbox"
-                          className="h-4 w-4"
+                          className="h-4 w-4 shrink-0"
                           checked={checked}
                           onChange={() => toggleService(s.id)}
                         />
-                        <div>
+                        <ListingThumb url={s.imagen_url} label={s.nombre} size="sm" />
+                        <div className="min-w-0">
                           <div className="text-sm font-medium text-neutral-50">
                             {s.nombre}
                           </div>

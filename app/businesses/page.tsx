@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import ClientNav from "@/components/ClientNav";
+import ListingThumb from "@/components/ListingThumb";
 
 type Negocio = {
   id: string;
   nombre: string;
   zona_horaria: string;
+  imagen_url?: string | null;
 };
 
 type NegociosResponse = {
@@ -24,10 +26,12 @@ type ServicioSearch = {
   duracion_min: number;
   buffer_min: number | null;
   precio: number;
+  imagen_url?: string | null;
   negocios?: {
     id: string;
     nombre: string;
     zona_horaria: string | null;
+    imagen_url?: string | null;
   } | null;
 };
 
@@ -235,11 +239,14 @@ export default function BusinessesListPage() {
                 className="block rounded-2xl border border-neutral-800 bg-[#060606] px-6 py-4 hover:border-neutral-600 hover:bg-[#090909] transition"
               >
                 <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-sm font-medium text-neutral-50">{renderHighlighted(n.nombre)}</h2>
-                    <p className="mt-1 text-xs text-neutral-400">{n.zona_horaria}</p>
+                  <div className="flex min-w-0 flex-1 items-center gap-4">
+                    <ListingThumb url={n.imagen_url} label={n.nombre} size="md" />
+                    <div className="min-w-0">
+                      <h2 className="text-sm font-medium text-neutral-50">{renderHighlighted(n.nombre)}</h2>
+                      <p className="mt-1 text-xs text-neutral-400">{n.zona_horaria}</p>
+                    </div>
                   </div>
-                  <span className="text-xs text-neutral-300">View</span>
+                  <span className="shrink-0 text-xs text-neutral-300">View</span>
                 </div>
               </Link>
             ))}
@@ -257,16 +264,24 @@ export default function BusinessesListPage() {
                 className="block rounded-2xl border border-neutral-800 bg-[#060606] px-6 py-4 hover:border-neutral-600 hover:bg-[#090909] transition"
               >
                 <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-sm font-medium text-neutral-50">{renderHighlighted(s.nombre)}</h2>
-                    <p className="mt-1 text-xs text-neutral-400">
-                      {renderHighlighted(s.negocios?.nombre || "Business")} · {s.duracion_min} min + {s.buffer_min ?? 0} min buffer · ${s.precio}
-                    </p>
-                    {s.descripcion ? (
-                      <p className="mt-1 text-xs text-neutral-500 line-clamp-1">{renderHighlighted(s.descripcion)}</p>
-                    ) : null}
+                  <div className="flex min-w-0 flex-1 items-center gap-4">
+                    <ListingThumb
+                      url={s.imagen_url ?? s.negocios?.imagen_url}
+                      label={s.nombre}
+                      size="md"
+                    />
+                    <div className="min-w-0">
+                      <h2 className="text-sm font-medium text-neutral-50">{renderHighlighted(s.nombre)}</h2>
+                      <p className="mt-1 text-xs text-neutral-400">
+                        {renderHighlighted(s.negocios?.nombre || "Business")} · {s.duracion_min} min + {s.buffer_min ?? 0}{" "}
+                        min buffer · ${s.precio}
+                      </p>
+                      {s.descripcion ? (
+                        <p className="mt-1 text-xs text-neutral-500 line-clamp-1">{renderHighlighted(s.descripcion)}</p>
+                      ) : null}
+                    </div>
                   </div>
-                  <span className="text-xs text-neutral-300">Open business</span>
+                  <span className="shrink-0 text-xs text-neutral-300">Open business</span>
                 </div>
               </Link>
             ))}

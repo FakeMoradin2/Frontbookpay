@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
+import { ensureSupabaseSession } from "@/lib/supabase-session";
 
 type AuthResponse = {
   ok: boolean;
@@ -69,6 +70,14 @@ export default function LoginPage() {
         }
         if (data.refresh_token) {
           localStorage.setItem("refresh_token", data.refresh_token);
+        }
+        if (data.access_token && data.refresh_token) {
+          await supabase.auth.setSession({
+            access_token: data.access_token,
+            refresh_token: data.refresh_token,
+          });
+        } else {
+          await ensureSupabaseSession();
         }
       }
 

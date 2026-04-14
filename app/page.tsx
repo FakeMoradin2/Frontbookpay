@@ -132,8 +132,27 @@ export default function LandingPage() {
       </main>
 
       <footer className="border-t border-neutral-800/80 py-8">
-        <div className="mx-auto max-w-6xl px-4 text-center text-sm text-neutral-500">
-          © {new Date().getFullYear()} Book&Pay. Book and pay in one place.
+        <div className="mx-auto flex max-w-6xl flex-col items-center gap-3 px-4 text-center">
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm">
+            <Link href="/privacy-policy" className="text-neutral-400 transition hover:text-neutral-100">
+              Privacy Policy
+            </Link>
+            <span className="hidden text-neutral-600 sm:inline" aria-hidden>
+              |
+            </span>
+            <Link href="/terms-of-service" className="text-neutral-400 transition hover:text-neutral-100">
+              Terms of Service
+            </Link>
+            <span className="hidden text-neutral-600 sm:inline" aria-hidden>
+              |
+            </span>
+            <Link href="/data-protection" className="text-neutral-400 transition hover:text-neutral-100">
+              Data Protection
+            </Link>
+          </div>
+          <p className="text-sm text-neutral-500">
+            © {new Date().getFullYear()} Book&Pay. Book and pay in one place.
+          </p>
         </div>
       </footer>
     </div>

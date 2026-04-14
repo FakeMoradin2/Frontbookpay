@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 type Pago = {
   id: string;
@@ -20,6 +20,12 @@ export default function PaymentsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pagos, setPagos] = useState<Pago[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [stripeAccountId, setStripeAccountId] = useState<string | null>(null);
+  const [stripeChargesEnabled, setStripeChargesEnabled] = useState(false);
+  const [stripeDetailsSubmitted, setStripeDetailsSubmitted] = useState(false);
+  const [connectLoading, setConnectLoading] = useState(false);
+  const [connectNotice, setConnectNotice] = useState<string | null>(null);
 
   const fetchPagos = async () => {
     if (!API_URL || typeof window === "undefined") return;
@@ -33,8 +39,92 @@ export default function PaymentsPage() {
     setPagos(Array.isArray(data.data) ? data.data : []);
   };
 
+  const fetchNegocioStripe = useCallback(async () => {
+    if (!API_URL || typeof window === "undefined") return;
+    const token = window.localStorage.getItem("access_token");
+    if (!token) return;
+    const res = await fetch(`${API_URL}/api/negocios/admin/negocio`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok || !data.data) return;
+    const n = data.data;
+    setStripeAccountId(
+      typeof n.stripe_connect_account_id === "string" && n.stripe_connect_account_id
+        ? n.stripe_connect_account_id
+        : null
+    );
+    setStripeChargesEnabled(!!n.stripe_connect_charges_enabled);
+    setStripeDetailsSubmitted(!!n.stripe_connect_details_submitted);
+  }, []);
+
+  const handleConnectStripe = async () => {
+    if (!API_URL || typeof window === "undefined") return;
+    const token = window.localStorage.getItem("access_token");
+    if (!token) return;
+    setConnectLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_URL}/api/stripe/connect/account-link`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.ok || typeof data.url !== "string") {
+        throw new Error(data.error || "Could not start Stripe Connect");
+      }
+      window.location.href = data.url;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Stripe Connect error");
+    } finally {
+      setConnectLoading(false);
+    }
+  };
+
   useEffect(() => {
     const load = async () => {
+      if (!API_URL || typeof window === "undefined") return;
+      const token = window.localStorage.getItem("access_token");
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+
+      let admin = false;
+      try {
+        const meRes = await fetch(`${API_URL}/api/auth/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const meData = await meRes.json().catch(() => ({}));
+        admin = !!(meRes.ok && meData.ok && meData.user?.rol === "admin");
+        setIsAdmin(admin);
+
+        const params = new URLSearchParams(window.location.search);
+        const connect = params.get("connect");
+
+        if (admin) {
+          await fetchNegocioStripe();
+          if (connect === "return") {
+            setConnectNotice(
+              "You returned from Stripe. If payouts are not active yet, finish any pending steps in the Stripe form."
+            );
+            window.history.replaceState({}, "", "/dashboard/payments");
+            await fetchNegocioStripe();
+          } else if (connect === "refresh") {
+            setConnectNotice("The Stripe link expired. Use the button below to open a new one.");
+            window.history.replaceState({}, "", "/dashboard/payments");
+          }
+        } else if (connect === "return" || connect === "refresh") {
+          window.history.replaceState({}, "", "/dashboard/payments");
+        }
+      } catch {
+        /* role / stripe extras are optional */
+      }
+
       try {
         await fetchPagos();
       } catch (err) {
@@ -44,16 +134,54 @@ export default function PaymentsPage() {
       }
     };
     void load();
-  }, []);
+  }, [fetchNegocioStripe]);
 
   return (
     <>
       <section className="mb-7 md:mb-8">
         <h1 className="text-xl font-semibold tracking-tight md:text-2xl">Payments</h1>
         <p className="mt-1 text-xs text-neutral-400 md:text-sm">
-          Review payment records and statuses for your business bookings.
+          Configure card deposits and review payment records for your bookings.
         </p>
       </section>
+
+      {isAdmin ? (
+        <div className="mb-6 max-w-2xl space-y-3 rounded-xl border border-violet-900/40 bg-violet-950/15 p-4">
+          <div>
+            <h2 className="text-sm font-medium text-neutral-100">Online deposits (Stripe)</h2>
+            <p className="mt-1 text-xs text-neutral-500">
+              Connect Stripe so clients can pay the reservation deposit by card. Funds go to your connected account;
+              the platform may charge a small application fee.
+            </p>
+          </div>
+          {connectNotice ? (
+            <div className="rounded-md border border-violet-700/50 bg-violet-950/30 px-3 py-2 text-xs text-violet-100">
+              {connectNotice}
+            </div>
+          ) : null}
+          <div className="text-xs text-neutral-400">
+            {stripeChargesEnabled ? (
+              <span className="text-emerald-300">Stripe is connected and can charge deposits.</span>
+            ) : stripeAccountId ? (
+              <span>
+                Account created
+                {stripeDetailsSubmitted ? " — details submitted" : ""}. Finish onboarding in Stripe to enable
+                charges.
+              </span>
+            ) : (
+              <span>Not connected yet.</span>
+            )}
+          </div>
+          <button
+            type="button"
+            disabled={connectLoading}
+            onClick={() => void handleConnectStripe()}
+            className="rounded-lg bg-[#635bff] px-4 py-2 text-xs font-medium text-white transition hover:bg-[#5851ea] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {connectLoading ? "Opening Stripe…" : stripeChargesEnabled ? "Update Stripe account" : "Connect Stripe"}
+          </button>
+        </div>
+      ) : null}
 
       {error ? (
         <div className="mb-4 rounded-md border border-red-600/60 bg-red-950/40 px-3 py-2 text-sm text-red-200">
@@ -98,4 +226,3 @@ export default function PaymentsPage() {
     </>
   );
 }
-

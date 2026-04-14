@@ -16,3 +16,62 @@ body {
   background-color: var(--background);
   color: var(--foreground);
 }
+
+/* Legal / long-form pages */
+.legal-doc-content h2 {
+  margin-top: 2.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: rgb(245 245 245);
+}
+.legal-doc-content h2:first-child {
+  margin-top: 0;
+}
+.legal-doc-content h3 {
+  margin-top: 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: rgb(229 229 229);
+}
+.legal-doc-content p {
+  margin-top: 0.75rem;
+}
+.legal-doc-content ul {
+  margin-top: 0.75rem;
+  list-style-type: disc;
+  padding-left: 1.25rem;
+}
+.legal-doc-content li {
+  margin-top: 0.25rem;
+}
+.legal-doc-content strong {
+  font-weight: 600;
+  color: rgb(245 245 245);
+}
+
+/*
+ * Icono del calendario en inputs nativos: en tema oscuro el glyph del SO suele quedar negro.
+ * Sustituimos el indicador WebKit por un SVG claro (más fiable que filter: invert con Tailwind v4).
+ */
+input:is([type="datetime-local"], [type="date"], [type="time"]) {
+  color-scheme: dark;
+}
+
+input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 1;
+  width: 1.125rem;
+  height: 1.125rem;
+  padding: 0;
+  margin-inline-start: 0.35rem;
+  flex-shrink: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  background-color: transparent;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='%23e5e5e5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2' ry='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}

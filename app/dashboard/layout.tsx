@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
+import { ensureSupabaseSession } from "@/lib/supabase-session";
 
 type MeResponse = {
   ok: boolean;
@@ -159,6 +160,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         }
         setUserRole(data.user.rol as "admin" | "staff");
         if (data.user.nombre) setUserName(data.user.nombre);
+        void ensureSupabaseSession();
       } catch {
         router.replace("/");
       } finally {
