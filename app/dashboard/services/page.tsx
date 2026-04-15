@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 import Link from "next/link";
 import { uploadNewServicioImage, uploadServicioImage } from "@/lib/storage-upload";
 
@@ -23,8 +24,6 @@ export default function ServicesPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [servicios, setServicios] = useState<Servicio[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -142,11 +141,9 @@ export default function ServicesPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setError(null);
-    setSuccess(null);
 
     if (!nombre.trim()) {
-      setError("Name is required");
+      toast.error("Name is required");
       return;
     }
 
@@ -154,34 +151,34 @@ export default function ServicesPage() {
     const pr = parseFloat(precio);
     const bf = parseInt(bufferMin || "0", 10);
     if (isNaN(dur) || dur <= 0) {
-      setError("Duration must be greater than 0");
+      toast.error("Duration must be greater than 0");
       return;
     }
     if (isNaN(pr) || pr < 0) {
-      setError("Price must be 0 or greater");
+      toast.error("Price must be 0 or greater");
       return;
     }
     if (isNaN(bf) || bf < 0) {
-      setError("Buffer must be 0 or greater");
+      toast.error("Buffer must be 0 or greater");
       return;
     }
     if (bf > 30) {
-      setError("Buffer must be less than 30 minutes");
+      toast.error("Buffer must be less than 30 minutes");
       return;
     }
 
     if (anticipoTipo !== "no_requiere") {
       if (!stripeDepositsReady) {
-        setError("Connect Stripe under Payments before requiring a deposit.");
+        toast.error("Connect Stripe under Payments before requiring a deposit.");
         return;
       }
       const av = parseFloat(anticipoValor);
       if (anticipoTipo === "fijo" && (isNaN(av) || av <= 0)) {
-        setError("Deposit value must be greater than 0");
+        toast.error("Deposit value must be greater than 0");
         return;
       }
       if (anticipoTipo === "porcentaje" && (isNaN(av) || av < 1 || av > 100)) {
-        setError("Deposit percentage must be between 1 and 100");
+        toast.error("Deposit percentage must be between 1 and 100");
         return;
       }
     }
@@ -225,7 +222,7 @@ export default function ServicesPage() {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Could not update service");
-        setSuccess("Service updated successfully");
+        toast.success("Service updated successfully");
       } else {
         const res = await fetch(`${API_URL}/api/servicios/admin/servicios`, {
           method: "POST",
@@ -234,25 +231,23 @@ export default function ServicesPage() {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Could not create service");
-        setSuccess("Service created successfully");
+        toast.success("Service created successfully");
       }
       await fetchServicios();
       resetForm();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      toast.error(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const performDelete = async (id: string) => {
     if (!API_URL) return;
     const token = getToken();
     if (!token) return;
-    if (!confirm("Are you sure you want to remove this service?")) return;
 
     setDeleting(id);
-    setError(null);
     try {
       const res = await fetch(`${API_URL}/api/servicios/admin/servicios/${id}`, {
         method: "DELETE",
@@ -260,14 +255,32 @@ export default function ServicesPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Could not delete service");
-      setSuccess("Service removed");
+      toast.success("Service removed");
       await fetchServicios();
       if (editingId === id) resetForm();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      toast.error(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setDeleting(null);
     }
+  };
+
+  const handleDelete = (id: string) => {
+    if (!API_URL) return;
+    const token = getToken();
+    if (!token) return;
+    toast.warning("Delete this service?", {
+      description: "Deletion may be blocked if there are future reservations tied to it.",
+      duration: 12_000,
+      action: {
+        label: "Delete",
+        onClick: () => void performDelete(id),
+      },
+      cancel: {
+        label: "Cancel",
+        onClick: () => {},
+      },
+    });
   };
 
   const formatDeposit = (s: Servicio) => {
@@ -284,18 +297,6 @@ export default function ServicesPage() {
           Manage your service catalog: name, duration, price, and deposit rules.
         </p>
       </section>
-
-      {error && (
-        <div className="mb-4 rounded-md border border-red-600/60 bg-red-950/40 px-3 py-2 text-sm text-red-200">
-          {error}
-        </div>
-      )}
-
-      {success && (
-        <div className="mb-4 rounded-md border border-emerald-600/60 bg-emerald-950/40 px-3 py-2 text-sm text-emerald-200">
-          {success}
-        </div>
-      )}
 
       {!showForm ? (
         <button

@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { useParams, useRouter } from "next/navigation";
 import ClientNav from "@/components/ClientNav";
 import ListingThumb from "@/components/ListingThumb";
@@ -14,6 +15,11 @@ type Servicio = {
   imagen_url?: string | null;
   anticipo_tipo: "fijo" | "porcentaje" | "no_requiere";
   anticipo_valor: number | null;
+};
+
+type StaffMember = {
+  id: string;
+  nombre: string;
 };
 
 type ServiciosResponse = {
@@ -94,9 +100,9 @@ export default function BusinessBookPage() {
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [services, setServices] = useState<Servicio[]>([]);
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [selectedStaffId, setSelectedStaffId] = useState("");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [selectedDate, setSelectedDate] = useState("");
   const [availableDates, setAvailableDates] = useState<
@@ -118,6 +124,11 @@ export default function BusinessBookPage() {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [occupiedMinutes, setOccupiedMinutes] = useState<number>(0);
   const [note, setNote] = useState("");
+  const [existingResConflict, setExistingResConflict] = useState<{
+    count: number;
+    businessName: string;
+  } | null>(null);
+  const hasStaff = staff.length > 0;
 
   const groupedDates = useMemo(() => {
     const groups: Record<string, Array<{ date: string; weekday: string; slots_count: number }>> = {};
@@ -166,19 +177,28 @@ export default function BusinessBookPage() {
   useEffect(() => {
     const load = async () => {
       if (!API_URL || !negocioId) {
-        setError("Missing API URL or business id.");
+        toast.error("Missing API URL or business id.");
         setLoading(false);
         return;
       }
       try {
-        const res = await fetch(`${API_URL}/api/servicios?negocio_id=${negocioId}`);
-        const data: ServiciosResponse = await res.json();
-        if (!res.ok || !data.ok || !Array.isArray(data.data)) {
+        const [servRes, staffRes] = await Promise.all([
+          fetch(`${API_URL}/api/servicios?negocio_id=${negocioId}`),
+          fetch(`${API_URL}/api/usuarios/public/staff?negocio_id=${negocioId}`),
+        ]);
+        const data: ServiciosResponse = await servRes.json();
+        const staffData = await staffRes.json().catch(() => ({}));
+        if (!servRes.ok || !data.ok || !Array.isArray(data.data)) {
           throw new Error(data.error || "Could not load services.");
         }
         setServices(data.data);
+        if (!staffRes.ok || !staffData?.ok || !Array.isArray(staffData?.data)) {
+          throw new Error(staffData.error || "Could not load staff.");
+        }
+        setStaff(staffData.data);
+        setSelectedStaffId(staffData.data[0]?.id || "");
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error loading services.");
+        toast.error(err instanceof Error ? err.message : "Unknown error loading services.");
       } finally {
         setLoading(false);
       }
@@ -218,6 +238,7 @@ export default function BusinessBookPage() {
           servicio_ids: selectedIds.join(","),
           days: "45",
         });
+        if (selectedStaffId) params.set("staff_id", selectedStaffId);
         const res = await fetch(`${API_URL}/api/reservas/public/fechas-disponibles?${params.toString()}`);
         const data: FechasDisponiblesResponse = await res.json();
         if (!res.ok || !data.ok || !data.data) {
@@ -235,7 +256,7 @@ export default function BusinessBookPage() {
           setSelectedDate("");
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error loading dates.");
+        toast.error(err instanceof Error ? err.message : "Unknown error loading dates.");
         setAvailableDates([]);
         setSelectedDate("");
       } finally {
@@ -244,7 +265,7 @@ export default function BusinessBookPage() {
     };
 
     void fetchDates();
-  }, [negocioId, selectedIds]);
+  }, [negocioId, selectedIds, selectedStaffId]);
 
   useEffect(() => {
     const fetchSlots = async () => {
@@ -261,6 +282,7 @@ export default function BusinessBookPage() {
           fecha: selectedDate,
           servicio_ids: selectedIds.join(","),
         });
+        if (selectedStaffId) params.set("staff_id", selectedStaffId);
         const res = await fetch(`${API_URL}/api/reservas/public/disponibilidad?${params.toString()}`);
         const data: DisponibilidadResponse = await res.json();
         if (!res.ok || !data.ok || !data.data) {
@@ -269,32 +291,18 @@ export default function BusinessBookPage() {
         setAvailableSlots(data.data.slots || []);
         setOccupiedMinutes(Number(data.data.occupied_minutes || 0));
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error loading slots.");
+        toast.error(err instanceof Error ? err.message : "Unknown error loading slots.");
         setAvailableSlots([]);
       } finally {
         setLoadingSlots(false);
       }
     };
     void fetchSlots();
-  }, [negocioId, selectedDate, selectedIds]);
+  }, [negocioId, selectedDate, selectedIds, selectedStaffId]);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setSuccess(null);
-
+  const executeCreateReservation = async () => {
     if (!API_URL || !negocioId) {
-      setError("API URL is not configured.");
-      return;
-    }
-
-    if (selectedIds.length === 0) {
-      setError("Please select at least one service.");
-      return;
-    }
-
-    if (!selectedSlotStart) {
-      setError("Please choose one available time slot.");
+      toast.error("API URL is not configured.");
       return;
     }
 
@@ -304,38 +312,8 @@ export default function BusinessBookPage() {
         : null;
 
     if (!token) {
-      setError("You must sign in as a client to create a reservation.");
+      toast.error("You must sign in as a client to create a reservation.");
       return;
-    }
-
-    try {
-      const existingRes = await fetch(`${API_URL}/api/reservas/cliente/mis-reservas`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const existingData: MisReservasResponse = await existingRes.json().catch(() => ({ ok: false }));
-      if (existingRes.ok && existingData.ok && Array.isArray(existingData.data)) {
-        const now = new Date();
-        const activeUpcoming = existingData.data.filter((r) => {
-          const start = new Date(r.inicio_en);
-          return (
-            start > now &&
-            !["cancelada", "completada", "expirada"].includes(r.estado)
-          );
-        });
-
-        if (activeUpcoming.length > 0) {
-          const first = activeUpcoming[0];
-          const businessName = first.negocios?.nombre || "another business";
-          const message =
-            `You already have ${activeUpcoming.length} active reservation(s), including one in ${businessName}.\n\n` +
-            "Do you want to continue creating this reservation?\n" +
-            "Press Cancel to keep your current reservation flow only.";
-          const proceed = window.confirm(message);
-          if (!proceed) return;
-        }
-      }
-    } catch {
-      // If warning lookup fails, continue with normal reservation flow.
     }
 
     setSubmitting(true);
@@ -346,6 +324,9 @@ export default function BusinessBookPage() {
         nota: note || null,
         servicios: selectedIds.map((id) => ({ servicio_id: id, cantidad: 1 })),
       };
+      if (selectedStaffId) {
+        Object.assign(body, { staff_id: selectedStaffId });
+      }
 
       const res = await fetch(`${API_URL}/api/reservas/cliente/reservas`, {
         method: "POST",
@@ -380,26 +361,86 @@ export default function BusinessBookPage() {
           window.location.href = payData.url;
           return;
         }
-        setError(
+        toast.warning(
           payData.error ||
             "Your reservation was created but the card payment page could not be opened. You can review it under My reservations."
         );
-        setSuccess("Reservation saved as pending payment.");
+        toast.success("Reservation saved as pending payment.");
         setTimeout(() => {
           router.push("/client/reservations");
         }, 2800);
         return;
       }
 
-      setSuccess("Reservation created. You can review it in your client space.");
+      toast.success("Reservation created. You can review it in your client space.");
       setTimeout(() => {
         router.push("/client/reservations");
       }, 1200);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error creating reservation.");
+      toast.error(err instanceof Error ? err.message : "Unknown error creating reservation.");
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+
+    if (!API_URL || !negocioId) {
+      toast.error("API URL is not configured.");
+      return;
+    }
+
+    if (selectedIds.length === 0) {
+      toast.error("Please select at least one service.");
+      return;
+    }
+
+    if (!selectedSlotStart) {
+      toast.error("Please choose one available time slot.");
+      return;
+    }
+
+    const token =
+      typeof window !== "undefined"
+        ? window.localStorage.getItem("access_token")
+        : null;
+
+    if (!token) {
+      toast.error("You must sign in as a client to create a reservation.");
+      return;
+    }
+
+    try {
+      const existingRes = await fetch(`${API_URL}/api/reservas/cliente/mis-reservas`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const existingData: MisReservasResponse = await existingRes.json().catch(() => ({ ok: false }));
+      if (existingRes.ok && existingData.ok && Array.isArray(existingData.data)) {
+        const now = new Date();
+        const activeUpcoming = existingData.data.filter((r) => {
+          const start = new Date(r.inicio_en);
+          return (
+            start > now &&
+            !["cancelada", "completada", "expirada"].includes(r.estado)
+          );
+        });
+
+        if (activeUpcoming.length > 0) {
+          const first = activeUpcoming[0];
+          const businessName = first.negocios?.nombre || "another business";
+          setExistingResConflict({
+            count: activeUpcoming.length,
+            businessName,
+          });
+          return;
+        }
+      }
+    } catch {
+      // If warning lookup fails, continue with normal reservation flow.
+    }
+
+    await executeCreateReservation();
   };
 
   return (
@@ -421,18 +462,6 @@ export default function BusinessBookPage() {
           </p>
         </header>
 
-        {error && (
-          <div className="mb-4 rounded-md border border-red-600/60 bg-red-950/40 px-3 py-2 text-sm text-red-200">
-            {error}
-          </div>
-        )}
-
-        {success && (
-          <div className="mb-4 rounded-md border border-emerald-600/60 bg-emerald-950/40 px-3 py-2 text-sm text-emerald-200">
-            {success}
-          </div>
-        )}
-
         {loading ? (
           <p className="text-sm text-neutral-400">Loading services...</p>
         ) : services.length === 0 ? (
@@ -441,6 +470,39 @@ export default function BusinessBookPage() {
           </p>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-6">
+            <section className="space-y-2">
+              <h2 className="text-sm font-medium text-neutral-50">Staff member</h2>
+              <p className="text-xs text-neutral-500">
+                {hasStaff
+                  ? "Choose a specific staff member or leave as any available."
+                  : "This business currently books without specific staff assignment."}
+              </p>
+              {staff.length === 0 ? (
+                <p className="rounded-2xl border border-neutral-800 bg-[#060606] px-4 py-3 text-xs text-neutral-400">
+                  No active staff found. Booking will use the general availability flow.
+                </p>
+              ) : (
+                <select
+                  value={selectedStaffId}
+                  onChange={(e) => {
+                    setSelectedStaffId(e.target.value);
+                    setSelectedDate("");
+                    setAvailableDates([]);
+                    setSelectedSlotStart("");
+                    setSelectedSlotEnd("");
+                  }}
+                  className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none ring-0 transition focus:border-neutral-500 focus:bg-neutral-900 focus:ring-1 focus:ring-neutral-500"
+                >
+                  <option value="">Any available staff</option>
+                  {staff.map((member) => (
+                    <option key={member.id} value={member.id}>
+                      {member.nombre}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </section>
+
             <section className="space-y-3">
               <h2 className="text-sm font-medium text-neutral-50">Services</h2>
               <div className="space-y-2">
@@ -642,6 +704,51 @@ export default function BusinessBookPage() {
             </button>
           </form>
         )}
+
+        {existingResConflict ? (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="multi-res-title"
+          >
+            <div className="w-full max-w-md rounded-2xl border border-neutral-700 bg-neutral-950 p-6 shadow-2xl">
+              <h2 id="multi-res-title" className="text-lg font-semibold text-neutral-50">
+                Create another reservation?
+              </h2>
+              <p className="mt-2 text-sm text-neutral-400">
+                You already have{" "}
+                <span className="text-neutral-200">
+                  {existingResConflict.count} active reservation
+                  {existingResConflict.count === 1 ? "" : "s"}
+                </span>
+                , including one at{" "}
+                <span className="text-neutral-200">{existingResConflict.businessName}</span>. You can go back or
+                continue and create this booking anyway.
+              </p>
+              <div className="mt-6 flex flex-col gap-2">
+                <button
+                  type="button"
+                  disabled={submitting}
+                  onClick={() => {
+                    setExistingResConflict(null);
+                    void executeCreateReservation();
+                  }}
+                  className="rounded-xl bg-neutral-100 px-4 py-2.5 text-sm font-medium text-neutral-950 transition hover:bg-white disabled:opacity-50"
+                >
+                  Continue and create this reservation
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setExistingResConflict(null)}
+                  className="rounded-xl border border-neutral-700 px-4 py-2.5 text-sm font-medium text-neutral-300 transition hover:bg-neutral-900"
+                >
+                  Back
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

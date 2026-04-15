@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { toast } from "sonner";
 
 type Perfil = {
   id: string;
@@ -14,8 +15,6 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 export default function ClientProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   const [nombre, setNombre] = useState("");
   const [correo, setCorreo] = useState("");
@@ -42,7 +41,7 @@ export default function ClientProfilePage() {
         setCorreo(p.correo || "");
         setTelefono(p.telefono || "");
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error");
+        toast.error(err instanceof Error ? err.message : "Unknown error");
       } finally {
         setLoading(false);
       }
@@ -52,14 +51,12 @@ export default function ClientProfilePage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setError(null);
-    setSuccess(null);
     if (!API_URL) return;
     const token = getToken();
     if (!token) return;
 
     if (!nombre.trim() || !correo.trim()) {
-      setError("Name and email are required.");
+      toast.error("Name and email are required.");
       return;
     }
 
@@ -81,9 +78,9 @@ export default function ClientProfilePage() {
       if (!res.ok || !data.ok) {
         throw new Error(data.error || "Could not update profile");
       }
-      setSuccess("Profile updated successfully.");
+      toast.success("Profile updated successfully.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      toast.error(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setSaving(false);
     }
@@ -99,17 +96,6 @@ export default function ClientProfilePage() {
           Update your name, email, and phone number.
         </p>
       </div>
-
-      {error ? (
-        <div className="mb-4 rounded-md border border-red-600/60 bg-red-950/40 px-3 py-2 text-sm text-red-200">
-          {error}
-        </div>
-      ) : null}
-      {success ? (
-        <div className="mb-4 rounded-md border border-emerald-600/60 bg-emerald-950/40 px-3 py-2 text-sm text-emerald-200">
-          {success}
-        </div>
-      ) : null}
 
       <form onSubmit={handleSubmit} className="max-w-xl space-y-4 rounded-2xl border border-neutral-800 bg-[#060606] p-6">
         <div className="space-y-1.5">

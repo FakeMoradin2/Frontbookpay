@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import Link from "next/link";
 import ClientNav from "@/components/ClientNav";
 import ListingThumb from "@/components/ListingThumb";
@@ -50,7 +51,6 @@ function escapeRegExp(text: string) {
 export default function BusinessesListPage() {
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [negocios, setNegocios] = useState<Negocio[]>([]);
   const [servicios, setServicios] = useState<ServicioSearch[]>([]);
   const [query, setQuery] = useState("");
@@ -62,7 +62,7 @@ export default function BusinessesListPage() {
   useEffect(() => {
     const load = async () => {
       if (!API_URL) {
-        setError("API URL is not configured.");
+        toast.error("API URL is not configured.");
         setLoading(false);
         return;
       }
@@ -74,7 +74,7 @@ export default function BusinessesListPage() {
         }
         setNegocios(data.data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error loading businesses.");
+        toast.error(err instanceof Error ? err.message : "Unknown error loading businesses.");
       } finally {
         setLoading(false);
       }
@@ -84,7 +84,6 @@ export default function BusinessesListPage() {
 
   const handleSearch = useCallback(async (text: string) => {
     if (!API_URL) return;
-    setError(null);
     setSearching(true);
     try {
       const term = text.trim();
@@ -120,7 +119,7 @@ export default function BusinessesListPage() {
       setNegocios(businessFiltered);
       setServicios(serData.data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown search error.");
+      toast.error(err instanceof Error ? err.message : "Unknown search error.");
     } finally {
       setSearching(false);
     }
@@ -217,12 +216,6 @@ export default function BusinessesListPage() {
             <p className="mt-2 text-[11px] text-neutral-500">Searching...</p>
           ) : null}
         </header>
-
-        {error && (
-          <div className="mb-4 rounded-md border border-red-600/60 bg-red-950/40 px-3 py-2 text-sm text-red-200">
-            {error}
-          </div>
-        )}
 
         {loading || searching ? (
           <p className="text-sm text-neutral-400">Loading businesses...</p>

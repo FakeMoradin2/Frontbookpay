@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 
 type Bloqueo = {
   id: string;
@@ -15,8 +16,6 @@ export default function BlockedDatesPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [bloqueos, setBloqueos] = useState<Bloqueo[]>([]);
 
   const [inicioEn, setInicioEn] = useState("");
@@ -43,7 +42,7 @@ export default function BlockedDatesPage() {
       try {
         await fetchBloqueos();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error");
+        toast.error(err instanceof Error ? err.message : "Unknown error");
       } finally {
         setLoading(false);
       }
@@ -53,15 +52,13 @@ export default function BlockedDatesPage() {
 
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
-    setError(null);
-    setSuccess(null);
 
     if (!inicioEn || !finEn) {
-      setError("Start and end are required.");
+      toast.error("Start and end are required.");
       return;
     }
     if (inicioEn >= finEn) {
-      setError("Start must be earlier than end.");
+      toast.error("Start must be earlier than end.");
       return;
     }
 
@@ -82,27 +79,24 @@ export default function BlockedDatesPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Could not create block");
-      setSuccess("Blocked period created.");
+      toast.success("Blocked period created.");
       setInicioEn("");
       setFinEn("");
       setMotivo("");
       await fetchBloqueos();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      toast.error(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const performDelete = async (id: string) => {
     if (!API_URL) return;
     const token = getToken();
     if (!token) return;
-    if (!confirm("Are you sure you want to remove this blocked period?")) return;
 
     setDeleting(id);
-    setError(null);
-    setSuccess(null);
     try {
       const res = await fetch(`${API_URL}/api/bloqueos/admin/bloqueos/${id}`, {
         method: "DELETE",
@@ -110,13 +104,31 @@ export default function BlockedDatesPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Could not delete blocked period");
-      setSuccess("Blocked period removed.");
+      toast.success("Blocked period removed.");
       await fetchBloqueos();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      toast.error(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setDeleting(null);
     }
+  };
+
+  const handleDelete = (id: string) => {
+    if (!API_URL) return;
+    const token = getToken();
+    if (!token) return;
+    toast.warning("Delete this blocked period?", {
+      description: "New bookings will be allowed in this window again after removal.",
+      duration: 12_000,
+      action: {
+        label: "Delete",
+        onClick: () => void performDelete(id),
+      },
+      cancel: {
+        label: "Cancel",
+        onClick: () => {},
+      },
+    });
   };
 
   return (
@@ -127,17 +139,6 @@ export default function BlockedDatesPage() {
           Create date/time blocks to prevent new bookings in unavailable periods.
         </p>
       </section>
-
-      {error ? (
-        <div className="mb-4 rounded-md border border-red-600/60 bg-red-950/40 px-3 py-2 text-sm text-red-200">
-          {error}
-        </div>
-      ) : null}
-      {success ? (
-        <div className="mb-4 rounded-md border border-emerald-600/60 bg-emerald-950/40 px-3 py-2 text-sm text-emerald-200">
-          {success}
-        </div>
-      ) : null}
 
       <form
         onSubmit={handleCreate}

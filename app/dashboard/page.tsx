@@ -61,6 +61,17 @@ function IconCard(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function IconUsers(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 text-neutral-200" {...props}>
+      <circle cx="9" cy="8" r="3" fill="none" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M3.8 18c.5-2.9 2.8-4.7 5.2-4.7s4.7 1.8 5.2 4.7" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <circle cx="17" cy="9" r="2.4" fill="none" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M14.8 18c.3-2 1.6-3.4 3.4-3.9" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 type DashboardCardProps = {
   title: string;
   description: string;
@@ -133,6 +144,12 @@ export default function DashboardPage() {
           description="Unavailable dates"
           icon={<IconBlock className="h-6 w-6 text-neutral-100" />}
           href="/dashboard/blocked"
+        />
+        <DashboardCard
+          title="Staff"
+          description="Team members and availability"
+          icon={<IconUsers className="h-6 w-6 text-neutral-100" />}
+          href="/dashboard/staff"
         />
         <DashboardCard
           title="Agenda"

@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { toast } from "sonner";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
@@ -31,19 +32,17 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setError(null);
 
     if (!API_URL) {
-      setError("NEXT_PUBLIC_API_URL is not configured");
+      toast.error("NEXT_PUBLIC_API_URL is not configured");
       return;
     }
 
     if (!email || !password) {
-      setError("Please enter your email and password.");
+      toast.error("Please enter your email and password.");
       return;
     }
 
@@ -106,7 +105,7 @@ export default function LoginPage() {
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Unknown error signing in.";
-      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -114,7 +113,6 @@ export default function LoginPage() {
 
   const handleGoogleLogin = async () => {
     try {
-      setError(null);
       setLoading(true);
 
       const {
@@ -145,7 +143,7 @@ export default function LoginPage() {
         err instanceof Error
           ? err.message
           : "Error signing in with Google.";
-      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -166,12 +164,6 @@ export default function LoginPage() {
             Email and password
           </p>
         </div>
-
-        {error && (
-          <div className="mb-4 rounded-md border border-red-600/60 bg-red-950/40 px-3 py-2 text-sm text-red-200">
-            {error}
-          </div>
-        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">

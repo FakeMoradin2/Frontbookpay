@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 
 type Pago = {
   id: string;
@@ -18,14 +19,12 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function PaymentsPage() {
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [pagos, setPagos] = useState<Pago[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [stripeAccountId, setStripeAccountId] = useState<string | null>(null);
   const [stripeChargesEnabled, setStripeChargesEnabled] = useState(false);
   const [stripeDetailsSubmitted, setStripeDetailsSubmitted] = useState(false);
   const [connectLoading, setConnectLoading] = useState(false);
-  const [connectNotice, setConnectNotice] = useState<string | null>(null);
 
   const fetchPagos = async () => {
     if (!API_URL || typeof window === "undefined") return;
@@ -63,7 +62,6 @@ export default function PaymentsPage() {
     const token = window.localStorage.getItem("access_token");
     if (!token) return;
     setConnectLoading(true);
-    setError(null);
     try {
       const res = await fetch(`${API_URL}/api/stripe/connect/account-link`, {
         method: "POST",
@@ -79,7 +77,7 @@ export default function PaymentsPage() {
       }
       window.location.href = data.url;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Stripe Connect error");
+      toast.error(err instanceof Error ? err.message : "Stripe Connect error");
     } finally {
       setConnectLoading(false);
     }
@@ -109,13 +107,13 @@ export default function PaymentsPage() {
         if (admin) {
           await fetchNegocioStripe();
           if (connect === "return") {
-            setConnectNotice(
+            toast.info(
               "You returned from Stripe. If payouts are not active yet, finish any pending steps in the Stripe form."
             );
             window.history.replaceState({}, "", "/dashboard/payments");
             await fetchNegocioStripe();
           } else if (connect === "refresh") {
-            setConnectNotice("The Stripe link expired. Use the button below to open a new one.");
+            toast.warning("The Stripe link expired. Use the button below to open a new one.");
             window.history.replaceState({}, "", "/dashboard/payments");
           }
         } else if (connect === "return" || connect === "refresh") {
@@ -128,7 +126,7 @@ export default function PaymentsPage() {
       try {
         await fetchPagos();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error");
+        toast.error(err instanceof Error ? err.message : "Unknown error");
       } finally {
         setLoading(false);
       }
@@ -154,11 +152,6 @@ export default function PaymentsPage() {
               the platform may charge a small application fee.
             </p>
           </div>
-          {connectNotice ? (
-            <div className="rounded-md border border-violet-700/50 bg-violet-950/30 px-3 py-2 text-xs text-violet-100">
-              {connectNotice}
-            </div>
-          ) : null}
           <div className="text-xs text-neutral-400">
             {stripeChargesEnabled ? (
               <span className="text-emerald-300">Stripe is connected and can charge deposits.</span>
@@ -180,12 +173,6 @@ export default function PaymentsPage() {
           >
             {connectLoading ? "Opening Stripe…" : stripeChargesEnabled ? "Update Stripe account" : "Connect Stripe"}
           </button>
-        </div>
-      ) : null}
-
-      {error ? (
-        <div className="mb-4 rounded-md border border-red-600/60 bg-red-950/40 px-3 py-2 text-sm text-red-200">
-          {error}
         </div>
       ) : null}
 

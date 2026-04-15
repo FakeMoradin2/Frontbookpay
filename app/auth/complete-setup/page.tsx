@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, Suspense, useState } from "react";
+import { toast } from "sonner";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -24,7 +25,6 @@ function CompleteSetupContent() {
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   if (!sessionId) {
     return (
@@ -47,20 +47,19 @@ function CompleteSetupContent() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setError(null);
 
     if (!API_URL) {
-      setError("API is not configured");
+      toast.error("API is not configured");
       return;
     }
 
     if (!password || password.length < 6) {
-      setError("Password must be at least 6 characters.");
+      toast.error("Password must be at least 6 characters.");
       return;
     }
 
     if (password !== password2) {
-      setError("Passwords do not match.");
+      toast.error("Passwords do not match.");
       return;
     }
 
@@ -91,7 +90,7 @@ function CompleteSetupContent() {
 
       router.push("/dashboard");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error.");
+      toast.error(err instanceof Error ? err.message : "Unknown error.");
     } finally {
       setLoading(false);
     }
@@ -109,12 +108,6 @@ function CompleteSetupContent() {
             Your payment was successful. If you&apos;re new, choose a password. If you already have an account, enter your current password.
           </p>
         </div>
-
-        {error && (
-          <div className="mb-4 rounded-md border border-red-600/60 bg-red-950/40 px-3 py-2 text-sm text-red-200">
-            {error}
-          </div>
-        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">

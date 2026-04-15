@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { toast } from "sonner";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
@@ -22,24 +23,22 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setError(null);
 
     if (!API_URL) {
-      setError("NEXT_PUBLIC_API_URL is not configured");
+      toast.error("NEXT_PUBLIC_API_URL is not configured");
       return;
     }
 
     if (!nombre || !email || !password || !password2) {
-      setError("Please fill in all fields.");
+      toast.error("Please fill in all fields.");
       return;
     }
 
     if (password !== password2) {
-      setError("Passwords do not match.");
+      toast.error("Passwords do not match.");
       return;
     }
 
@@ -71,7 +70,7 @@ export default function RegisterPage() {
       }
 
       if (!data.access_token) {
-        setError(
+        toast.info(
           "Account created. Please check your email to confirm your address, then sign in."
         );
         return;
@@ -90,7 +89,7 @@ export default function RegisterPage() {
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "Unknown error creating account.";
-      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -111,12 +110,6 @@ export default function RegisterPage() {
             </Link>
           </p>
         </div>
-
-        {error && (
-          <div className="mb-4 rounded-md border border-red-600/60 bg-red-950/40 px-3 py-2 text-sm text-red-200">
-            {error}
-          </div>
-        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">

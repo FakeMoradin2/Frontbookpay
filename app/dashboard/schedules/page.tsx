@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 type Horario = {
   id: string;
@@ -31,8 +32,6 @@ export default function SchedulesPage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [horarios, setHorarios] = useState<Horario[]>([]);
   const [showForm, setShowForm] = useState(false);
 
@@ -118,11 +117,9 @@ export default function SchedulesPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setError(null);
-    setSuccess(null);
 
     if (horaInicio >= horaFin) {
-      setError("Start time must be before end time");
+      toast.error("Start time must be before end time");
       return;
     }
 
@@ -145,14 +142,14 @@ export default function SchedulesPage() {
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Could not update schedule");
-        setSuccess("Schedule updated successfully");
+        toast.success("Schedule updated successfully");
         await fetchHorarios();
         resetForm();
         return;
       }
 
       if (selectedDayList.length === 0) {
-        setError("Select at least one day");
+        toast.error("Select at least one day");
         setSaving(false);
         return;
       }
@@ -182,24 +179,22 @@ export default function SchedulesPage() {
           .join("; ");
         msg = `${msg} ${detail}`;
       }
-      setSuccess(msg || "Schedules added successfully");
+      toast.success(msg || "Schedules added successfully");
       await fetchHorarios();
       resetForm();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      toast.error(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const performDelete = async (id: string) => {
     if (!API_URL) return;
     const token = getToken();
     if (!token) return;
-    if (!confirm("Are you sure you want to remove this schedule block?")) return;
 
     setDeleting(id);
-    setError(null);
     try {
       const res = await fetch(`${API_URL}/api/horarios/admin/horarios/${id}`, {
         method: "DELETE",
@@ -207,13 +202,31 @@ export default function SchedulesPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Could not delete schedule");
-      setSuccess("Schedule block removed");
+      toast.success("Schedule block removed");
       await fetchHorarios();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      toast.error(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setDeleting(null);
     }
+  };
+
+  const handleDelete = (id: string) => {
+    if (!API_URL) return;
+    const token = getToken();
+    if (!token) return;
+    toast.warning("Delete this schedule block?", {
+      description: "That day will no longer offer this time range until you add it again.",
+      duration: 12_000,
+      action: {
+        label: "Delete",
+        onClick: () => void performDelete(id),
+      },
+      cancel: {
+        label: "Cancel",
+        onClick: () => {},
+      },
+    });
   };
 
   const byDay = DAYS_MAP.map((d) => ({
@@ -229,18 +242,6 @@ export default function SchedulesPage() {
           Set your business hours. Add one block and choose multiple days at once (e.g. Mon–Fri 9:00–18:00).
         </p>
       </section>
-
-      {error && (
-        <div className="mb-4 rounded-md border border-red-600/60 bg-red-950/40 px-3 py-2 text-sm text-red-200">
-          {error}
-        </div>
-      )}
-
-      {success && (
-        <div className="mb-4 rounded-md border border-emerald-600/60 bg-emerald-950/40 px-3 py-2 text-sm text-emerald-200">
-          {success}
-        </div>
-      )}
 
       {!showForm ? (
         <button

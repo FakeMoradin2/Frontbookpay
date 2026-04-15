@@ -86,6 +86,17 @@ function IconGrid(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function IconUsers(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 text-neutral-200" {...props}>
+      <circle cx="9" cy="8" r="3" fill="none" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M3.8 18c.5-2.9 2.8-4.7 5.2-4.7s4.7 1.8 5.2 4.7" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      <circle cx="17" cy="9" r="2.4" fill="none" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M14.8 18c.3-2 1.6-3.4 3.4-3.9" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function NavLink({ href, children, icon }: { href: string; children: ReactNode; icon: ReactNode }) {
   const pathname = usePathname();
   const isActive = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
@@ -179,9 +190,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] text-neutral-100">
-      <div className="flex min-h-screen w-full">
-        <aside className="hidden w-64 flex-col border-r border-neutral-900 bg-[#050505] px-6 py-5 md:flex">
+    <div className="h-[100dvh] min-h-0 overflow-hidden bg-[#050505] text-neutral-100">
+      <div className="flex h-full min-h-0 w-full">
+        <aside className="hidden h-full w-64 shrink-0 flex-col overflow-y-auto border-r border-neutral-900 bg-[#050505] px-6 py-5 md:flex">
           <div className="mb-8">
             <div className="text-sm font-semibold tracking-tight">BookAndPay</div>
             <div className="text-[11px] text-neutral-500">Admin panel</div>
@@ -207,6 +218,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 Blocked dates
               </NavLink>
             ) : null}
+            {userRole === "admin" ? (
+              <NavLink href="/dashboard/staff" icon={<IconUsers />}>
+                Staff
+              </NavLink>
+            ) : null}
             <NavLink href="/dashboard/agenda" icon={<IconCalendar />}>
               Agenda
             </NavLink>
@@ -216,8 +232,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           </nav>
         </aside>
 
-        <div className="flex flex-1 flex-col">
-          <header className="flex items-center justify-between border-b border-neutral-900 px-5 py-4 md:px-8">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <header className="flex shrink-0 items-center justify-between border-b border-neutral-900 px-5 py-4 md:px-8">
             <div className="text-xs text-neutral-400">
               {userName ? `${userName} - ` : ""}
               <span className="font-medium text-neutral-100">{userRole ?? "panel"}</span>
@@ -231,7 +247,9 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             </button>
           </header>
 
-          <main className="flex-1 overflow-y-auto px-5 py-6 md:px-10 md:py-8">{children}</main>
+          <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 md:px-10 md:py-8">
+            {children}
+          </main>
         </div>
       </div>
     </div>

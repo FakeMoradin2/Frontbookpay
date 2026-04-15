@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { useParams, useRouter } from "next/navigation";
 import ClientNav from "@/components/ClientNav";
 import ListingThumb from "@/components/ListingThumb";
@@ -46,14 +47,13 @@ export default function BusinessDetailPage() {
   const id = typeof params?.id === "string" ? params.id : Array.isArray(params?.id) ? params.id[0] : "";
 
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const [negocio, setNegocio] = useState<Negocio | null>(null);
   const [servicios, setServicios] = useState<Servicio[]>([]);
 
   useEffect(() => {
     const load = async () => {
       if (!API_URL || !id) {
-        setError("Missing API URL or business id.");
+        toast.error("Missing API URL or business id.");
         setLoading(false);
         return;
       }
@@ -77,7 +77,7 @@ export default function BusinessDetailPage() {
         setNegocio(negocioData.data);
         setServicios(serviciosData.data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Unknown error loading business.");
+        toast.error(err instanceof Error ? err.message : "Unknown error loading business.");
       } finally {
         setLoading(false);
       }
@@ -100,12 +100,6 @@ export default function BusinessDetailPage() {
         >
           ← Back
         </button>
-
-        {error && (
-          <div className="mb-4 rounded-md border border-red-600/60 bg-red-950/40 px-3 py-2 text-sm text-red-200">
-            {error}
-          </div>
-        )}
 
         {loading ? (
           <p className="text-sm text-neutral-400">Loading business...</p>

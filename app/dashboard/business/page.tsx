@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { uploadNegocioImage } from "@/lib/storage-upload";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -22,8 +23,6 @@ const COMMON_TIMEZONES = [
 export default function BusinessPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
   const [nombre, setNombre] = useState("");
   const [telefono, setTelefono] = useState("");
   const [correo, setCorreo] = useState("");
@@ -62,7 +61,7 @@ export default function BusinessPage() {
         setImagenUrl(typeof n.imagen_url === "string" ? n.imagen_url : null);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      toast.error(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setLoading(false);
     }
@@ -85,9 +84,10 @@ export default function BusinessPage() {
     try {
       await navigator.clipboard.writeText(publicBookingUrl);
       setCopiedLink(true);
+      toast.success("Link copied to clipboard");
       window.setTimeout(() => setCopiedLink(false), 2000);
     } catch {
-      setError("Could not copy. Select the link and copy it manually.");
+      toast.error("Could not copy. Select the link and copy it manually.");
     }
   };
 
@@ -119,14 +119,12 @@ export default function BusinessPage() {
     if (!file || !negocioId) return;
 
     setUploadingImage(true);
-    setError(null);
-    setSuccess(false);
     try {
       const publicUrl = await uploadNegocioImage(negocioId, file);
       await patchImagenUrl(publicUrl);
-      setSuccess(true);
+      toast.success("Image updated");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not upload image");
+      toast.error(err instanceof Error ? err.message : "Could not upload image");
     } finally {
       setUploadingImage(false);
     }
@@ -135,13 +133,11 @@ export default function BusinessPage() {
   const handleRemoveBusinessImage = async () => {
     if (!imagenUrl) return;
     setUploadingImage(true);
-    setError(null);
-    setSuccess(false);
     try {
       await patchImagenUrl(null);
-      setSuccess(true);
+      toast.success("Image removed");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not remove image");
+      toast.error(err instanceof Error ? err.message : "Could not remove image");
     } finally {
       setUploadingImage(false);
     }
@@ -149,8 +145,6 @@ export default function BusinessPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setError(null);
-    setSuccess(false);
 
     if (!API_URL || typeof window === "undefined") return;
     const token = window.localStorage.getItem("access_token");
@@ -158,11 +152,11 @@ export default function BusinessPage() {
 
     const bufferNum = parseInt(bufferMin, 10);
     if (isNaN(bufferNum) || bufferNum < 0) {
-      setError("Buffer duration must be 0 or greater");
+      toast.error("Buffer duration must be 0 or greater");
       return;
     }
     if (bufferNum > 30) {
-      setError("Buffer duration must be less than 30 minutes");
+      toast.error("Buffer duration must be less than 30 minutes");
       return;
     }
 
@@ -189,9 +183,9 @@ export default function BusinessPage() {
         throw new Error(data.error || "Could not update business");
       }
 
-      setSuccess(true);
+      toast.success("Business updated successfully.");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      toast.error(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setSaving(false);
     }
@@ -214,18 +208,6 @@ export default function BusinessPage() {
           Configure your business details: name, contact, timezone, and buffer between appointments.
         </p>
       </section>
-
-      {error && (
-        <div className="mb-4 rounded-md border border-red-600/60 bg-red-950/40 px-3 py-2 text-sm text-red-200">
-          {error}
-        </div>
-      )}
-
-      {success && (
-        <div className="mb-4 rounded-md border border-emerald-600/60 bg-emerald-950/40 px-3 py-2 text-sm text-emerald-200">
-          Business updated successfully.
-        </div>
-      )}
 
       {publicBookingUrl ? (
         <div className="mb-6 max-w-xl space-y-3 rounded-xl border border-emerald-900/50 bg-emerald-950/20 p-4">

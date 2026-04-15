@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import { toast } from "sonner";
 import Link from "next/link";
 
 type CheckoutResponse = {
@@ -15,21 +16,19 @@ const STRIPE_TEST_MODE = process.env.NEXT_PUBLIC_STRIPE_TEST_MODE === "true";
 
 export default function PricingPage() {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
 
   const handleCheckout = async (e: FormEvent) => {
     e.preventDefault();
-    setError(null);
 
     if (!API_URL) {
-      setError("NEXT_PUBLIC_API_URL is not configured");
+      toast.error("NEXT_PUBLIC_API_URL is not configured");
       return;
     }
 
     if (!nombre.trim() || !email.trim()) {
-      setError("Name and email are required.");
+      toast.error("Name and email are required.");
       return;
     }
 
@@ -55,7 +54,7 @@ export default function PricingPage() {
         window.location.href = data.url;
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error.");
+      toast.error(err instanceof Error ? err.message : "Unknown error.");
     } finally {
       setLoading(false);
     }
@@ -173,11 +172,6 @@ export default function PricingPage() {
             </ul>
 
             <form onSubmit={handleCheckout} className="mt-8 space-y-4">
-              {error && (
-                <div className="rounded-md border border-red-600/60 bg-red-950/40 px-3 py-2 text-sm text-red-200">
-                  {error}
-                </div>
-              )}
               <input
                 type="text"
                 placeholder="Your name"
