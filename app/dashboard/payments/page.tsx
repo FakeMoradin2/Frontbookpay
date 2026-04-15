@@ -57,6 +57,20 @@ export default function PaymentsPage() {
     setStripeDetailsSubmitted(!!n.stripe_connect_details_submitted);
   }, []);
 
+  const syncConnectStatus = useCallback(async () => {
+    if (!API_URL || typeof window === "undefined") return false;
+    const token = window.localStorage.getItem("access_token");
+    if (!token) return false;
+    const res = await fetch(`${API_URL}/api/stripe/connect/sync-status`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const data = await res.json().catch(() => ({}));
+    return !!(res.ok && data.ok);
+  }, []);
+
   const handleConnectStripe = async () => {
     if (!API_URL || typeof window === "undefined") return;
     const token = window.localStorage.getItem("access_token");
@@ -107,8 +121,11 @@ export default function PaymentsPage() {
         if (admin) {
           await fetchNegocioStripe();
           if (connect === "return") {
+            const synced = await syncConnectStatus().catch(() => false);
             toast.info(
-              "You returned from Stripe. If payouts are not active yet, finish any pending steps in the Stripe form."
+              synced
+                ? "Stripe account status updated."
+                : "You returned from Stripe. If payouts are not active yet, finish any pending steps in the Stripe form."
             );
             window.history.replaceState({}, "", "/dashboard/payments");
             await fetchNegocioStripe();
@@ -132,7 +149,7 @@ export default function PaymentsPage() {
       }
     };
     void load();
-  }, [fetchNegocioStripe]);
+  }, [fetchNegocioStripe, syncConnectStatus]);
 
   return (
     <>
