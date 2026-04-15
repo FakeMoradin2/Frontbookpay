@@ -58,6 +58,40 @@ export default function ClientReservationsPage() {
   const getToken = () =>
     typeof window !== "undefined" ? window.localStorage.getItem("access_token") : null;
 
+  const handleCheckoutSuccessVerification = useCallback(async () => {
+    if (!API_URL || typeof window === "undefined") return;
+    const deposit = searchParams.get("deposit");
+    const sessionId = searchParams.get("session_id");
+    if (deposit !== "success" || !sessionId) return;
+
+    const token = getToken();
+    if (!token) return;
+
+    try {
+      const res = await fetch(`${API_URL}/api/stripe/deposit-verify-session`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ session_id: sessionId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "Could not verify payment status");
+      }
+      toast.success("Payment confirmed. Your reservation is now confirmed.");
+    } catch (err) {
+      toast.warning(
+        err instanceof Error
+          ? err.message
+          : "Payment verification is still pending. Please refresh in a moment."
+      );
+    } finally {
+      router.replace("/client/reservations");
+    }
+  }, [router, searchParams]);
+
   const handleCheckoutCanceledCleanup = useCallback(async () => {
     if (!API_URL || typeof window === "undefined") return;
     const deposit = searchParams.get("deposit");
@@ -106,6 +140,7 @@ export default function ClientReservationsPage() {
   useEffect(() => {
     const load = async () => {
       try {
+        await handleCheckoutSuccessVerification();
         await handleCheckoutCanceledCleanup();
         await fetchReservas();
       } catch (err) {
@@ -115,7 +150,7 @@ export default function ClientReservationsPage() {
       }
     };
     void load();
-  }, [fetchReservas, handleCheckoutCanceledCleanup]);
+  }, [fetchReservas, handleCheckoutCanceledCleanup, handleCheckoutSuccessVerification]);
 
   const executeCancel = async (id: string) => {
     if (!API_URL) return;
