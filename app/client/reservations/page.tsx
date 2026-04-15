@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { RescheduleSlotPicker, type ReservaServicioLine } from "@/components/RescheduleSlotPicker";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type Reserva = {
   id: string;
@@ -45,6 +46,8 @@ function formatReservationStatus(estado: string): string {
 }
 
 export default function ClientReservationsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState<string | null>(null);
   const [rescheduleOpen, setRescheduleOpen] = useState<string | null>(null);
@@ -54,6 +57,38 @@ export default function ClientReservationsPage() {
 
   const getToken = () =>
     typeof window !== "undefined" ? window.localStorage.getItem("access_token") : null;
+
+  const handleCheckoutCanceledCleanup = useCallback(async () => {
+    if (!API_URL || typeof window === "undefined") return;
+    const deposit = searchParams.get("deposit");
+    const reservaId = searchParams.get("reserva_id");
+    if (deposit !== "canceled" || !reservaId) return;
+
+    const token = getToken();
+    if (!token) return;
+
+    try {
+      const res = await fetch(`${API_URL}/api/stripe/deposit-cancel-pending`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ reserva_id: reservaId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error || "Could not clear canceled pending reservation");
+      }
+      if (data.cleaned) {
+        toast.info("Canceled payment: pending reservation removed.");
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not clear canceled pending reservation");
+    } finally {
+      router.replace("/client/reservations");
+    }
+  }, [router, searchParams]);
 
   const fetchReservas = useCallback(async () => {
     if (!API_URL) return;
@@ -71,6 +106,7 @@ export default function ClientReservationsPage() {
   useEffect(() => {
     const load = async () => {
       try {
+        await handleCheckoutCanceledCleanup();
         await fetchReservas();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Failed to load reservations");
@@ -79,7 +115,7 @@ export default function ClientReservationsPage() {
       }
     };
     void load();
-  }, [fetchReservas]);
+  }, [fetchReservas, handleCheckoutCanceledCleanup]);
 
   const executeCancel = async (id: string) => {
     if (!API_URL) return;

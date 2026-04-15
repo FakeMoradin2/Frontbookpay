@@ -46,17 +46,6 @@ type DepositCheckoutResponse = {
   error?: string;
 };
 
-type MisReservasResponse = {
-  ok: boolean;
-  data?: Array<{
-    id: string;
-    inicio_en: string;
-    estado: string;
-    negocios?: { nombre?: string | null } | null;
-  }>;
-  error?: string;
-};
-
 type DisponibilidadResponse = {
   ok: boolean;
   data?: {
@@ -124,10 +113,6 @@ export default function BusinessBookPage() {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [occupiedMinutes, setOccupiedMinutes] = useState<number>(0);
   const [note, setNote] = useState("");
-  const [existingResConflict, setExistingResConflict] = useState<{
-    count: number;
-    businessName: string;
-  } | null>(null);
   const hasStaff = staff.length > 0;
 
   const groupedDates = useMemo(() => {
@@ -401,45 +386,6 @@ export default function BusinessBookPage() {
       return;
     }
 
-    const token =
-      typeof window !== "undefined"
-        ? window.localStorage.getItem("access_token")
-        : null;
-
-    if (!token) {
-      toast.error("You must sign in as a client to create a reservation.");
-      return;
-    }
-
-    try {
-      const existingRes = await fetch(`${API_URL}/api/reservas/cliente/mis-reservas`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const existingData: MisReservasResponse = await existingRes.json().catch(() => ({ ok: false }));
-      if (existingRes.ok && existingData.ok && Array.isArray(existingData.data)) {
-        const now = new Date();
-        const activeUpcoming = existingData.data.filter((r) => {
-          const start = new Date(r.inicio_en);
-          return (
-            start > now &&
-            !["cancelada", "completada", "expirada"].includes(r.estado)
-          );
-        });
-
-        if (activeUpcoming.length > 0) {
-          const first = activeUpcoming[0];
-          const businessName = first.negocios?.nombre || "another business";
-          setExistingResConflict({
-            count: activeUpcoming.length,
-            businessName,
-          });
-          return;
-        }
-      }
-    } catch {
-      // If warning lookup fails, continue with normal reservation flow.
-    }
-
     await executeCreateReservation();
   };
 
@@ -705,50 +651,6 @@ export default function BusinessBookPage() {
           </form>
         )}
 
-        {existingResConflict ? (
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="multi-res-title"
-          >
-            <div className="w-full max-w-md rounded-2xl border border-neutral-700 bg-neutral-950 p-6 shadow-2xl">
-              <h2 id="multi-res-title" className="text-lg font-semibold text-neutral-50">
-                Create another reservation?
-              </h2>
-              <p className="mt-2 text-sm text-neutral-400">
-                You already have{" "}
-                <span className="text-neutral-200">
-                  {existingResConflict.count} active reservation
-                  {existingResConflict.count === 1 ? "" : "s"}
-                </span>
-                , including one at{" "}
-                <span className="text-neutral-200">{existingResConflict.businessName}</span>. You can go back or
-                continue and create this booking anyway.
-              </p>
-              <div className="mt-6 flex flex-col gap-2">
-                <button
-                  type="button"
-                  disabled={submitting}
-                  onClick={() => {
-                    setExistingResConflict(null);
-                    void executeCreateReservation();
-                  }}
-                  className="rounded-xl bg-neutral-100 px-4 py-2.5 text-sm font-medium text-neutral-950 transition hover:bg-white disabled:opacity-50"
-                >
-                  Continue and create this reservation
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setExistingResConflict(null)}
-                  className="rounded-xl border border-neutral-700 px-4 py-2.5 text-sm font-medium text-neutral-300 transition hover:bg-neutral-900"
-                >
-                  Back
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
       </div>
     </div>
   );
