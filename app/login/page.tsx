@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 import { ensureSupabaseSession } from "@/lib/supabase-session";
+import { PasswordInput } from "@/components/PasswordInput";
 
 type AuthResponse = {
   ok: boolean;
@@ -185,11 +186,9 @@ export default function LoginPage() {
             <label className="block text-sm text-neutral-300" htmlFor="password">
               Password
             </label>
-            <input
+            <PasswordInput
               id="password"
-              type="password"
               autoComplete="current-password"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none ring-0 transition focus:border-neutral-500 focus:bg-neutral-900 focus:ring-1 focus:ring-neutral-500"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />

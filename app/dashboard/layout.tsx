@@ -97,12 +97,39 @@ function IconUsers(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-function NavLink({ href, children, icon }: { href: string; children: ReactNode; icon: ReactNode }) {
+function IconMenu(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" {...props}>
+      <path d="M4 7h16M4 12h16M4 17h16" />
+    </svg>
+  );
+}
+
+function IconClose(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" {...props}>
+      <path d="M6 6l12 12M18 6L6 18" />
+    </svg>
+  );
+}
+
+function NavLink({
+  href,
+  children,
+  icon,
+  onNavigate,
+}: {
+  href: string;
+  children: ReactNode;
+  icon: ReactNode;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
   const isActive = pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
   return (
     <Link
       href={href}
+      onClick={() => onNavigate?.()}
       className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition ${
         isActive ? "bg-neutral-900 text-neutral-50" : "text-neutral-400 hover:bg-neutral-900 hover:text-neutral-100"
       }`}
@@ -113,11 +140,62 @@ function NavLink({ href, children, icon }: { href: string; children: ReactNode; 
   );
 }
 
+function SidebarNavContent({
+  userRole,
+  onNavigate,
+}: {
+  userRole: "admin" | "staff" | null;
+  onNavigate?: () => void;
+}) {
+  return (
+    <>
+      <div className="mb-8">
+        <div className="text-sm font-semibold tracking-tight">BookAndPay</div>
+        <div className="text-[11px] text-neutral-500">Admin panel</div>
+      </div>
+
+      <nav className="flex flex-1 flex-col space-y-1">
+        <NavLink href="/dashboard" onNavigate={onNavigate} icon={<IconGrid />}>
+          Dashboard
+        </NavLink>
+        <NavLink href="/dashboard/services" onNavigate={onNavigate} icon={<IconScissors />}>
+          Services
+        </NavLink>
+        <NavLink href="/dashboard/schedules" onNavigate={onNavigate} icon={<IconClock />}>
+          Schedules
+        </NavLink>
+        {userRole === "admin" ? (
+          <NavLink href="/dashboard/business" onNavigate={onNavigate} icon={<IconStore />}>
+            My business
+          </NavLink>
+        ) : null}
+        {userRole === "admin" ? (
+          <NavLink href="/dashboard/blocked" onNavigate={onNavigate} icon={<IconBlock />}>
+            Blocked dates
+          </NavLink>
+        ) : null}
+        {userRole === "admin" ? (
+          <NavLink href="/dashboard/staff" onNavigate={onNavigate} icon={<IconUsers />}>
+            Staff
+          </NavLink>
+        ) : null}
+        <NavLink href="/dashboard/agenda" onNavigate={onNavigate} icon={<IconCalendar />}>
+          Agenda
+        </NavLink>
+        <NavLink href="/dashboard/payments" onNavigate={onNavigate} icon={<IconCard />}>
+          Payments
+        </NavLink>
+      </nav>
+    </>
+  );
+}
+
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [userName, setUserName] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<"admin" | "staff" | null>(null);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const handleLogout = async () => {
     if (typeof window !== "undefined") {
@@ -181,6 +259,24 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     void verifyPanelUser();
   }, [router]);
 
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [mobileNavOpen]);
+
+  useEffect(() => {
+    if (!mobileNavOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileNavOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mobileNavOpen]);
+
   if (checkingAuth) {
     return (
       <div className="min-h-screen bg-[#050505] text-neutral-100 flex items-center justify-center">
@@ -193,61 +289,59 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     <div className="h-[100dvh] min-h-0 overflow-hidden bg-[#050505] text-neutral-100">
       <div className="flex h-full min-h-0 w-full">
         <aside className="hidden h-full w-64 shrink-0 flex-col overflow-y-auto border-r border-neutral-900 bg-[#050505] px-6 py-5 md:flex">
-          <div className="mb-8">
-            <div className="text-sm font-semibold tracking-tight">BookAndPay</div>
-            <div className="text-[11px] text-neutral-500">Admin panel</div>
-          </div>
-
-          <nav className="flex-1 space-y-1">
-            <NavLink href="/dashboard" icon={<IconGrid />}>
-              Dashboard
-            </NavLink>
-            <NavLink href="/dashboard/services" icon={<IconScissors />}>
-              Services
-            </NavLink>
-            <NavLink href="/dashboard/schedules" icon={<IconClock />}>
-              Schedules
-            </NavLink>
-            {userRole === "admin" ? (
-              <NavLink href="/dashboard/business" icon={<IconStore />}>
-                My business
-              </NavLink>
-            ) : null}
-            {userRole === "admin" ? (
-              <NavLink href="/dashboard/blocked" icon={<IconBlock />}>
-                Blocked dates
-              </NavLink>
-            ) : null}
-            {userRole === "admin" ? (
-              <NavLink href="/dashboard/staff" icon={<IconUsers />}>
-                Staff
-              </NavLink>
-            ) : null}
-            <NavLink href="/dashboard/agenda" icon={<IconCalendar />}>
-              Agenda
-            </NavLink>
-            <NavLink href="/dashboard/payments" icon={<IconCard />}>
-              Payments
-            </NavLink>
-          </nav>
+          <SidebarNavContent userRole={userRole} />
         </aside>
 
+        {mobileNavOpen ? (
+          <>
+            <button
+              type="button"
+              className="fixed inset-0 z-40 bg-black/70 md:hidden"
+              aria-label="Cerrar menú"
+              onClick={() => setMobileNavOpen(false)}
+            />
+            <aside className="fixed left-0 top-0 z-50 flex h-full w-[min(18rem,88vw)] flex-col overflow-y-auto border-r border-neutral-900 bg-[#050505] px-5 py-5 shadow-2xl md:hidden">
+              <div className="mb-4 flex items-center justify-end">
+                <button
+                  type="button"
+                  onClick={() => setMobileNavOpen(false)}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-neutral-800 text-neutral-200 hover:bg-neutral-900"
+                  aria-label="Cerrar menú"
+                >
+                  <IconClose />
+                </button>
+              </div>
+              <SidebarNavContent userRole={userRole} onNavigate={() => setMobileNavOpen(false)} />
+            </aside>
+          </>
+        ) : null}
+
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-          <header className="flex shrink-0 items-center justify-between border-b border-neutral-900 px-5 py-4 md:px-8">
-            <div className="text-xs text-neutral-400">
-              {userName ? `${userName} - ` : ""}
-              <span className="font-medium text-neutral-100">{userRole ?? "panel"}</span>
+          <header className="flex shrink-0 items-center justify-between gap-3 border-b border-neutral-900 px-4 py-3 md:px-8 md:py-4">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setMobileNavOpen(true)}
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-neutral-800 text-neutral-200 hover:bg-neutral-900 md:hidden"
+                aria-label="Abrir menú de navegación"
+              >
+                <IconMenu />
+              </button>
+              <div className="min-w-0 truncate text-xs text-neutral-400">
+                {userName ? `${userName} - ` : ""}
+                <span className="font-medium text-neutral-100">{userRole ?? "panel"}</span>
+              </div>
             </div>
             <button
               type="button"
               onClick={handleLogout}
-              className="rounded-full bg-neutral-100 px-4 py-1.5 text-xs font-medium text-black hover:bg-neutral-200"
+              className="shrink-0 rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-medium text-black hover:bg-neutral-200 sm:px-4"
             >
               Logout
             </button>
           </header>
 
-          <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-6 md:px-10 md:py-8">
+          <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-5 sm:py-6 md:px-10 md:py-8">
             {children}
           </main>
         </div>

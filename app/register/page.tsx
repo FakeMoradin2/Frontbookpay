@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { PasswordInput } from "@/components/PasswordInput";
 
 type RegisterResponse = {
   ok: boolean;
@@ -148,12 +149,10 @@ export default function RegisterPage() {
             >
               Password
             </label>
-            <input
+            <PasswordInput
               id="password"
-              type="password"
               placeholder="Minimum 6 characters"
               autoComplete="new-password"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none ring-0 transition focus:border-neutral-500 focus:bg-neutral-900 focus:ring-1 focus:ring-neutral-500"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
@@ -166,11 +165,9 @@ export default function RegisterPage() {
             >
               Confirm password
             </label>
-            <input
+            <PasswordInput
               id="password2"
-              type="password"
               autoComplete="new-password"
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none ring-0 transition focus:border-neutral-500 focus:bg-neutral-900 focus:ring-1 focus:ring-neutral-500"
               value={password2}
               onChange={(e) => setPassword2(e.target.value)}
             />

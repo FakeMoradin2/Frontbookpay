@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
+import { PasswordInput } from "@/components/PasswordInput";
 
 type StaffMember = {
   id: string;
@@ -157,12 +158,12 @@ export default function StaffPage() {
             placeholder="Phone (optional)"
             className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none transition focus:border-neutral-500 focus:ring-1 focus:ring-neutral-500"
           />
-          <input
-            type="password"
+          <PasswordInput
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Temporary password *"
-            className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none transition focus:border-neutral-500 focus:ring-1 focus:ring-neutral-500"
+            autoComplete="new-password"
+            inputClassName="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 py-2 pl-3 pr-10 text-sm outline-none transition focus:border-neutral-500 focus:ring-1 focus:ring-neutral-500"
           />
         </div>
         <div className="mt-3 flex justify-end">
