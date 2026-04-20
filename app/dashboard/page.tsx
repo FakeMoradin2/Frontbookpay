@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { useTranslation } from "@/contexts/LocaleContext";
 
 function IconStore(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -111,55 +112,55 @@ function DashboardCard({ title, description, icon, href, disabled }: DashboardCa
 }
 
 export default function DashboardPage() {
+  const { t } = useTranslation();
+
   return (
     <>
       <section className="mb-7 md:mb-8">
-        <h1 className="text-xl font-semibold tracking-tight md:text-2xl">Dashboard</h1>
-        <p className="mt-1 text-xs text-neutral-400 md:text-sm">
-          Welcome. Manage your business from the menu or the cards below.
-        </p>
+        <h1 className="text-xl font-semibold tracking-tight md:text-2xl">{t("dashboard.home.title")}</h1>
+        <p className="mt-1 text-xs text-neutral-400 md:text-sm">{t("dashboard.home.subtitle")}</p>
       </section>
 
       <section className="grid gap-4 lg:grid-cols-3">
         <DashboardCard
-          title="My business"
-          description="Business settings"
+          title={t("dashboard.home.card.business.title")}
+          description={t("dashboard.home.card.business.desc")}
           icon={<IconStore className="h-6 w-6 text-neutral-100" />}
           href="/dashboard/business"
         />
         <DashboardCard
-          title="Services"
-          description="Catalog and deposits"
+          title={t("dashboard.home.card.services.title")}
+          description={t("dashboard.home.card.services.desc")}
           icon={<IconScissors className="h-6 w-6 text-neutral-100" />}
           href="/dashboard/services"
         />
         <DashboardCard
-          title="Schedules"
-          description="Hours by day"
+          title={t("dashboard.home.card.schedules.title")}
+          description={t("dashboard.home.card.schedules.desc")}
           icon={<IconClock className="h-6 w-6 text-neutral-100" />}
           href="/dashboard/schedules"
         />
         <DashboardCard
-          title="Blocked dates"
-          description="Unavailable dates"
+          title={t("dashboard.home.card.blocked.title")}
+          description={t("dashboard.home.card.blocked.desc")}
           icon={<IconBlock className="h-6 w-6 text-neutral-100" />}
           href="/dashboard/blocked"
         />
         <DashboardCard
-          title="Staff"
-          description="Team members and availability"
+          title={t("dashboard.home.card.staff.title")}
+          description={t("dashboard.home.card.staff.desc")}
           icon={<IconUsers className="h-6 w-6 text-neutral-100" />}
           href="/dashboard/staff"
         />
         <DashboardCard
-          title="Agenda"
-          description="Bookings and status"
+          title={t("dashboard.home.card.agenda.title")}
+          description={t("dashboard.home.card.agenda.desc")}
           icon={<IconCalendar className="h-6 w-6 text-neutral-100" />}
           href="/dashboard/agenda"
         />
         <DashboardCard
-          title="Payments"
-          description="Deposits and payments"
+          title={t("dashboard.home.card.payments.title")}
+          description={t("dashboard.home.card.payments.desc")}
           icon={<IconCard className="h-6 w-6 text-neutral-100" />}
           href="/dashboard/payments"
         />

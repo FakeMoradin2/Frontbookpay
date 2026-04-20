@@ -5,6 +5,7 @@ import {
   useState,
   type ComponentPropsWithoutRef,
 } from "react";
+import { useTranslation } from "@/contexts/LocaleContext";
 
 const defaultInputClass =
   "w-full rounded-lg border border-neutral-800 bg-neutral-900/60 py-2 pl-3 pr-10 text-sm outline-none ring-0 transition focus:border-neutral-500 focus:bg-neutral-900 focus:ring-1 focus:ring-neutral-500";
@@ -22,6 +23,7 @@ export type PasswordInputProps = Omit<
 export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
   function PasswordInput({ className, inputClassName, ...rest }, ref) {
     const [visible, setVisible] = useState(false);
+    const { t } = useTranslation();
 
     return (
       <div className={`relative ${className ?? ""}`}>
@@ -35,7 +37,7 @@ export const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(
           type="button"
           onClick={() => setVisible((v) => !v)}
           className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-neutral-400 transition hover:bg-neutral-800 hover:text-neutral-100"
-          aria-label={visible ? "Ocultar contraseña" : "Mostrar contraseña"}
+          aria-label={visible ? t("password.hide") : t("password.show")}
         >
           {visible ? <IconEyeOff /> : <IconEye />}
         </button>

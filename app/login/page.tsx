@@ -7,6 +7,8 @@ import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabaseClient";
 import { ensureSupabaseSession } from "@/lib/supabase-session";
 import { PasswordInput } from "@/components/PasswordInput";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useTranslation } from "@/contexts/LocaleContext";
 
 type AuthResponse = {
   ok: boolean;
@@ -30,6 +32,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function LoginPage() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -38,12 +41,12 @@ export default function LoginPage() {
     e.preventDefault();
 
     if (!API_URL) {
-      toast.error("NEXT_PUBLIC_API_URL is not configured");
+      toast.error(t("errors.apiUrlMissing"));
       return;
     }
 
     if (!email || !password) {
-      toast.error("Please enter your email and password.");
+      toast.error(t("login.toast.emailPassword"));
       return;
     }
 
@@ -61,7 +64,7 @@ export default function LoginPage() {
       const data: AuthResponse = await res.json();
 
       if (!res.ok || !data.ok) {
-        throw new Error(data.error || "Could not sign in.");
+        throw new Error(data.error || t("errors.signInFailed"));
       }
 
       if (typeof window !== "undefined") {
@@ -105,7 +108,7 @@ export default function LoginPage() {
       }
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Unknown error signing in.";
+        err instanceof Error ? err.message : t("errors.unknownSigningIn");
       toast.error(message);
     } finally {
       setLoading(false);
@@ -141,9 +144,7 @@ export default function LoginPage() {
       }
     } catch (err) {
       const message =
-        err instanceof Error
-          ? err.message
-          : "Error signing in with Google.";
+        err instanceof Error ? err.message : t("errors.googleSignIn");
       toast.error(message);
     } finally {
       setLoading(false);
@@ -151,32 +152,33 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-neutral-100 flex items-center justify-center px-4">
+    <div className="relative min-h-screen bg-[#050505] text-neutral-100 flex items-center justify-center px-4">
+      <div className="absolute right-4 top-4">
+        <LanguageSwitcher />
+      </div>
       <div className="w-full max-w-md rounded-2xl border border-neutral-800 bg-[#060606] px-8 py-10 shadow-xl">
         <div className="mb-8 text-center">
           <Link href="/" className="text-lg font-semibold tracking-tight hover:underline">
-            Book&Pay
+            {t("common.brand")}
           </Link>
         </div>
 
         <div className="mb-6">
-          <h2 className="text-lg font-medium">Sign in</h2>
-          <p className="mt-1 text-sm text-neutral-400">
-            Email and password
-          </p>
+          <h2 className="text-lg font-medium">{t("auth.login.title")}</h2>
+          <p className="mt-1 text-sm text-neutral-400">{t("auth.login.subtitle")}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <label className="block text-sm text-neutral-300" htmlFor="email">
-              Email
+              {t("common.email")}
             </label>
             <input
               id="email"
               type="email"
               autoComplete="email"
               className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none ring-0 transition focus:border-neutral-500 focus:bg-neutral-900 focus:ring-1 focus:ring-neutral-500"
-              placeholder="admin@example.com"
+              placeholder={t("auth.login.emailPlaceholder")}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
@@ -184,7 +186,7 @@ export default function LoginPage() {
 
           <div className="space-y-1.5">
             <label className="block text-sm text-neutral-300" htmlFor="password">
-              Password
+              {t("common.password")}
             </label>
             <PasswordInput
               id="password"
@@ -199,13 +201,13 @@ export default function LoginPage() {
             disabled={loading}
             className="mt-2 flex h-10 w-full items-center justify-center rounded-lg bg-neutral-50 text-sm font-medium text-black transition hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {loading ? "Signing in..." : "Sign in"}
+            {loading ? t("auth.login.signingIn") : t("auth.login.signInBtn")}
           </button>
         </form>
 
         <div className="mt-6 flex items-center gap-3">
           <div className="h-px flex-1 bg-neutral-800" />
-          <span className="text-xs text-neutral-500">o</span>
+          <span className="text-xs text-neutral-500">{t("common.or")}</span>
           <div className="h-px flex-1 bg-neutral-800" />
         </div>
 
@@ -223,18 +225,18 @@ export default function LoginPage() {
               <path fill="#FBBC05" d="M12 4.8c1.4 0 2.7.5 3.7 1.4l2.7-2.6C16.8 2.1 14.6 1.2 12 1.2 8.2 1.2 5 2.8 2.8 5.3l3.3 2.6C6.8 6 8.6 4.8 12 4.8z" />
             </svg>
           </span>
-          <span>Sign in with Google</span>
+          <span>{t("auth.login.google")}</span>
         </button>
 
         <p className="mt-6 text-center text-xs text-neutral-500">
-          Don&apos;t have an account?{" "}
+          {t("auth.login.noAccount")}{" "}
           <Link href="/register" className="font-medium text-neutral-200 hover:underline">
-            Sign up
+            {t("auth.login.signUpLink")}
           </Link>
         </p>
         <p className="mt-2 text-center text-xs text-neutral-500">
           <Link href="/" className="font-medium text-neutral-400 hover:underline">
-            ← Back to home
+            {t("common.backHome")}
           </Link>
         </p>
       </div>

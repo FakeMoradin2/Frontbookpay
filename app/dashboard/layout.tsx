@@ -6,6 +6,8 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { ensureSupabaseSession } from "@/lib/supabase-session";
+import { useTranslation } from "@/contexts/LocaleContext";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 type MeResponse = {
   ok: boolean;
@@ -143,47 +145,49 @@ function NavLink({
 function SidebarNavContent({
   userRole,
   onNavigate,
+  t,
 }: {
   userRole: "admin" | "staff" | null;
   onNavigate?: () => void;
+  t: (key: string) => string;
 }) {
   return (
     <>
       <div className="mb-8">
-        <div className="text-sm font-semibold tracking-tight">BookAndPay</div>
-        <div className="text-[11px] text-neutral-500">Admin panel</div>
+        <div className="text-sm font-semibold tracking-tight">{t("dashboard.layout.brand")}</div>
+        <div className="text-[11px] text-neutral-500">{t("dashboard.layout.subtitle")}</div>
       </div>
 
       <nav className="flex flex-1 flex-col space-y-1">
         <NavLink href="/dashboard" onNavigate={onNavigate} icon={<IconGrid />}>
-          Dashboard
+          {t("dashboard.nav.dashboard")}
         </NavLink>
         <NavLink href="/dashboard/services" onNavigate={onNavigate} icon={<IconScissors />}>
-          Services
+          {t("dashboard.nav.services")}
         </NavLink>
         <NavLink href="/dashboard/schedules" onNavigate={onNavigate} icon={<IconClock />}>
-          Schedules
+          {t("dashboard.nav.schedules")}
         </NavLink>
         {userRole === "admin" ? (
           <NavLink href="/dashboard/business" onNavigate={onNavigate} icon={<IconStore />}>
-            My business
+            {t("dashboard.nav.business")}
           </NavLink>
         ) : null}
         {userRole === "admin" ? (
           <NavLink href="/dashboard/blocked" onNavigate={onNavigate} icon={<IconBlock />}>
-            Blocked dates
+            {t("dashboard.nav.blocked")}
           </NavLink>
         ) : null}
         {userRole === "admin" ? (
           <NavLink href="/dashboard/staff" onNavigate={onNavigate} icon={<IconUsers />}>
-            Staff
+            {t("dashboard.nav.staff")}
           </NavLink>
         ) : null}
         <NavLink href="/dashboard/agenda" onNavigate={onNavigate} icon={<IconCalendar />}>
-          Agenda
+          {t("dashboard.nav.agenda")}
         </NavLink>
         <NavLink href="/dashboard/payments" onNavigate={onNavigate} icon={<IconCard />}>
-          Payments
+          {t("dashboard.nav.payments")}
         </NavLink>
       </nav>
     </>
@@ -192,6 +196,7 @@ function SidebarNavContent({
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const router = useRouter();
+  const { t } = useTranslation();
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [userName, setUserName] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<"admin" | "staff" | null>(null);
@@ -280,16 +285,19 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   if (checkingAuth) {
     return (
       <div className="min-h-screen bg-[#050505] text-neutral-100 flex items-center justify-center">
-        <p className="text-sm text-neutral-400">Loading panel...</p>
+        <p className="text-sm text-neutral-400">{t("dashboard.layout.loading")}</p>
       </div>
     );
   }
+
+  const roleLabel =
+    userRole === "admin" ? t("roles.admin") : userRole === "staff" ? t("roles.staff") : t("roles.panel");
 
   return (
     <div className="h-[100dvh] min-h-0 overflow-hidden bg-[#050505] text-neutral-100">
       <div className="flex h-full min-h-0 w-full">
         <aside className="hidden h-full w-64 shrink-0 flex-col overflow-y-auto border-r border-neutral-900 bg-[#050505] px-6 py-5 md:flex">
-          <SidebarNavContent userRole={userRole} />
+          <SidebarNavContent userRole={userRole} t={t} />
         </aside>
 
         {mobileNavOpen ? (
@@ -297,7 +305,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
             <button
               type="button"
               className="fixed inset-0 z-40 bg-black/70 md:hidden"
-              aria-label="Cerrar menú"
+              aria-label={t("aria.closeNav")}
               onClick={() => setMobileNavOpen(false)}
             />
             <aside className="fixed left-0 top-0 z-50 flex h-full w-[min(18rem,88vw)] flex-col overflow-y-auto border-r border-neutral-900 bg-[#050505] px-5 py-5 shadow-2xl md:hidden">
@@ -306,12 +314,16 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                   type="button"
                   onClick={() => setMobileNavOpen(false)}
                   className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-neutral-800 text-neutral-200 hover:bg-neutral-900"
-                  aria-label="Cerrar menú"
+                  aria-label={t("aria.closeNav")}
                 >
                   <IconClose />
                 </button>
               </div>
-              <SidebarNavContent userRole={userRole} onNavigate={() => setMobileNavOpen(false)} />
+              <SidebarNavContent
+                userRole={userRole}
+                onNavigate={() => setMobileNavOpen(false)}
+                t={t}
+              />
             </aside>
           </>
         ) : null}
@@ -323,22 +335,25 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
                 type="button"
                 onClick={() => setMobileNavOpen(true)}
                 className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-neutral-800 text-neutral-200 hover:bg-neutral-900 md:hidden"
-                aria-label="Abrir menú de navegación"
+                aria-label={t("aria.openNav")}
               >
                 <IconMenu />
               </button>
               <div className="min-w-0 truncate text-xs text-neutral-400">
                 {userName ? `${userName} - ` : ""}
-                <span className="font-medium text-neutral-100">{userRole ?? "panel"}</span>
+                <span className="font-medium text-neutral-100">{roleLabel}</span>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="shrink-0 rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-medium text-black hover:bg-neutral-200 sm:px-4"
-            >
-              Logout
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              <LanguageSwitcher variant="minimal" />
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="rounded-full bg-neutral-100 px-3 py-1.5 text-xs font-medium text-black hover:bg-neutral-200 sm:px-4"
+              >
+                {t("dashboard.layout.logout")}
+              </button>
+            </div>
           </header>
 
           <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 sm:px-5 sm:py-6 md:px-10 md:py-8">

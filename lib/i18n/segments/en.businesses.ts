@@ -1,0 +1,16 @@
+export const enBusinesses: Record<string, string> = {
+  "businesses.title": "Find a business",
+  "businesses.subtitle": "Search businesses or services and open the best match quickly.",
+  "businesses.tab.businesses": "Businesses",
+  "businesses.tab.services": "Services",
+  "businesses.search.placeholder.business": "Search business name...",
+  "businesses.search.placeholder.service": "Search service name...",
+  "businesses.searching": "Searching...",
+  "businesses.loading": "Loading businesses...",
+  "businesses.empty": "No businesses available yet.",
+  "businesses.noServices": "No services found.",
+  "businesses.view": "View",
+  "businesses.openBusiness": "Open business",
+  "businesses.serviceMeta": "{{name}} · {{dur}} min + {{buf}} min buffer · ${{price}}",
+  "businesses.businessFallback": "Business",
+};

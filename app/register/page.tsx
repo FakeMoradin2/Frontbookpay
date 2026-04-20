@@ -5,6 +5,8 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PasswordInput } from "@/components/PasswordInput";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useTranslation } from "@/contexts/LocaleContext";
 
 type RegisterResponse = {
   ok: boolean;
@@ -19,6 +21,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -29,17 +32,17 @@ export default function RegisterPage() {
     e.preventDefault();
 
     if (!API_URL) {
-      toast.error("NEXT_PUBLIC_API_URL is not configured");
+      toast.error(t("errors.apiUrlMissing"));
       return;
     }
 
     if (!nombre || !email || !password || !password2) {
-      toast.error("Please fill in all fields.");
+      toast.error(t("register.toast.fillAll"));
       return;
     }
 
     if (password !== password2) {
-      toast.error("Passwords do not match.");
+      toast.error(t("register.toast.passwordsMismatch"));
       return;
     }
 
@@ -64,16 +67,12 @@ export default function RegisterPage() {
       if (!res.ok || !data.ok) {
         const msg =
           data.error ||
-          (res.status === 409
-            ? "This email is already registered. Sign in or use a different email."
-            : "Could not create account.");
+          (res.status === 409 ? t("auth.register.emailTaken") : t("auth.register.couldNotCreate"));
         throw new Error(msg);
       }
 
       if (!data.access_token) {
-        toast.info(
-          "Account created. Please check your email to confirm your address, then sign in."
-        );
+        toast.info(t("auth.register.checkEmail"));
         return;
       }
 
@@ -89,7 +88,7 @@ export default function RegisterPage() {
       router.push("/client");
     } catch (err) {
       const message =
-        err instanceof Error ? err.message : "Unknown error creating account.";
+        err instanceof Error ? err.message : t("errors.unknownCreatingAccount");
       toast.error(message);
     } finally {
       setLoading(false);
@@ -97,17 +96,20 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-neutral-100 flex items-center justify-center px-4">
+    <div className="relative min-h-screen bg-[#050505] text-neutral-100 flex items-center justify-center px-4">
+      <div className="absolute right-4 top-4">
+        <LanguageSwitcher />
+      </div>
       <div className="w-full max-w-md rounded-2xl border border-neutral-800 bg-black/60 px-8 py-10 shadow-xl backdrop-blur">
         <div className="mb-8 text-center">
           <Link href="/" className="text-lg font-semibold tracking-tight hover:underline">
-            Book&Pay
+            {t("common.brand")}
           </Link>
-          <h1 className="mt-4 text-xl font-semibold tracking-tight">Create account (Client)</h1>
+          <h1 className="mt-4 text-xl font-semibold tracking-tight">{t("auth.register.title")}</h1>
           <p className="mt-1 text-sm text-neutral-400">
-            Sign up free to book appointments. Need an admin panel?{" "}
+            {t("auth.register.subtitle")}{" "}
             <Link href="/pricing" className="font-medium text-neutral-200 hover:underline">
-              View plans
+              {t("auth.register.viewPlans")}
             </Link>
           </p>
         </div>
@@ -115,13 +117,13 @@ export default function RegisterPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
             <label className="block text-sm text-neutral-300" htmlFor="nombre">
-              Name
+              {t("auth.register.nameLabel")}
             </label>
             <input
               id="nombre"
               type="text"
               className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none ring-0 transition focus:border-neutral-500 focus:bg-neutral-900 focus:ring-1 focus:ring-neutral-500"
-              placeholder="Your name"
+              placeholder={t("auth.register.namePlaceholder")}
               value={nombre}
               onChange={(e) => setNombre(e.target.value)}
             />
@@ -129,29 +131,26 @@ export default function RegisterPage() {
 
           <div className="space-y-1.5">
             <label className="block text-sm text-neutral-300" htmlFor="email">
-              Email
+              {t("common.email")}
             </label>
             <input
               id="email"
               type="email"
               autoComplete="email"
               className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none ring-0 transition focus:border-neutral-500 focus:bg-neutral-900 focus:ring-1 focus:ring-neutral-500"
-              placeholder="you@email.com"
+              placeholder={t("auth.register.emailPlaceholder")}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
 
           <div className="space-y-1.5">
-            <label
-              className="block text-sm text-neutral-300"
-              htmlFor="password"
-            >
-              Password
+            <label className="block text-sm text-neutral-300" htmlFor="password">
+              {t("common.password")}
             </label>
             <PasswordInput
               id="password"
-              placeholder="Minimum 6 characters"
+              placeholder={t("auth.register.passwordPlaceholder")}
               autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -159,11 +158,8 @@ export default function RegisterPage() {
           </div>
 
           <div className="space-y-1.5">
-            <label
-              className="block text-sm text-neutral-300"
-              htmlFor="password2"
-            >
-              Confirm password
+            <label className="block text-sm text-neutral-300" htmlFor="password2">
+              {t("common.confirmPassword")}
             </label>
             <PasswordInput
               id="password2"
@@ -178,26 +174,22 @@ export default function RegisterPage() {
             disabled={loading}
             className="mt-2 flex h-10 w-full items-center justify-center rounded-lg bg-neutral-50 text-sm font-medium text-black transition hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-70"
           >
-            {loading ? "Creating account..." : "Create free account"}
+            {loading ? t("auth.register.creating") : t("auth.register.submit")}
           </button>
         </form>
 
         <p className="mt-6 text-center text-xs text-neutral-500">
-          Already have an account?{" "}
-          <Link
-            href="/login"
-            className="font-medium text-neutral-200 hover:underline"
-          >
-            Sign in
+          {t("auth.register.hasAccount")}{" "}
+          <Link href="/login" className="font-medium text-neutral-200 hover:underline">
+            {t("common.signIn")}
           </Link>
         </p>
         <p className="mt-2 text-center text-xs text-neutral-500">
           <Link href="/" className="font-medium text-neutral-400 hover:underline">
-            ← Back to home
+            {t("common.backHome")}
           </Link>
         </p>
       </div>
     </div>
   );
 }
-

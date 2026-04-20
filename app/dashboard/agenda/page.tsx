@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { RescheduleSlotPicker, type ReservaServicioLine } from "@/components/RescheduleSlotPicker";
+import { useTranslation } from "@/contexts/LocaleContext";
 
 type Reserva = {
   id: string;
@@ -55,15 +56,6 @@ type SlotDisponible = {
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 const ESTADOS = ["pendiente_pago", "confirmada", "cancelada", "completada", "no_show", "expirada"] as const;
 
-const STATUS_LABELS: Record<(typeof ESTADOS)[number], string> = {
-  pendiente_pago: "Pending payment",
-  confirmada: "Confirmed",
-  cancelada: "Cancelled",
-  completada: "Completed",
-  no_show: "No show",
-  expirada: "Expired",
-};
-
 const STATUS_BORDER: Record<(typeof ESTADOS)[number], string> = {
   pendiente_pago: "border-l-amber-500/90",
   confirmada: "border-l-emerald-500/90",
@@ -73,11 +65,11 @@ const STATUS_BORDER: Record<(typeof ESTADOS)[number], string> = {
   expirada: "border-l-neutral-500",
 };
 
-function resolveClientContact(r: Reserva) {
+function resolveClientContact(r: Reserva, t: (key: string) => string) {
   const name =
     r.usuarios?.nombre?.trim() ||
     r.cliente_manual_nombre?.trim() ||
-    "Guest client";
+    t("guestClient");
   const email =
     r.usuarios?.correo?.trim() ||
     r.cliente_manual_correo?.trim() ||
@@ -143,13 +135,6 @@ function formatWeekday(dateIso: string) {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-const MANUAL_DAYS_OPTIONS = [
-  { value: 30, label: "Next 30 days" },
-  { value: 90, label: "Next 3 months" },
-  { value: 180, label: "Next 6 months" },
-  { value: 365, label: "Next 12 months" },
-];
-
 function toMonthKey(dateIso: string) {
   return dateIso.slice(0, 7); // yyyy-mm
 }
@@ -176,6 +161,30 @@ const TODAY_END_DEFAULT = (() => {
 })();
 
 export default function AgendaPage() {
+  const { t } = useTranslation();
+  const manualDaysOptions = useMemo(
+    () => [
+      { value: 30, label: t("agenda.range30") },
+      { value: 90, label: t("agenda.range90") },
+      { value: 180, label: t("agenda.range180") },
+      { value: 365, label: t("agenda.range365") },
+    ],
+    [t]
+  );
+  const rescheduleCopy = useMemo(
+    () => ({
+      title: t("reschedule.title"),
+      datesLabel: t("reschedule.datesLabel"),
+      slotsLabel: t("reschedule.slotsLabel"),
+      confirm: t("reschedule.confirm"),
+      saving: t("reschedule.saving"),
+      loadingDates: t("reschedule.loadingDates"),
+      loadingSlots: t("reschedule.loadingSlots"),
+      noDates: t("reschedule.noDates"),
+      noSlots: t("reschedule.noSlots"),
+    }),
+    [t]
+  );
   const [loading, setLoading] = useState(true);
   const [autoRefreshing, setAutoRefreshing] = useState(false);
   const [manualOpen, setManualOpen] = useState(false);
@@ -335,7 +344,7 @@ export default function AgendaPage() {
           fetchStaff(),
         ]);
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Unknown error");
+        toast.error(err instanceof Error ? err.message : t("errors.unknownGeneric"));
       } finally {
         setLoading(false);
       }
@@ -381,7 +390,7 @@ export default function AgendaPage() {
     try {
       await fetchReservas({ from, to, status });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Unknown error");
+      toast.error(err instanceof Error ? err.message : t("errors.unknownGeneric"));
     } finally {
       setLoading(false);
     }
@@ -400,9 +409,9 @@ export default function AgendaPage() {
       if (!res.ok) throw new Error(data.error || "Could not reschedule reservation");
       setRescheduleOpenId(null);
       await fetchReservas({ from, to, status });
-      toast.success("Reservation rescheduled");
+      toast.success(t("agenda.toast.rescheduled"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Unknown error");
+      toast.error(err instanceof Error ? err.message : t("errors.unknownGeneric"));
     } finally {
       setReschedulingId(null);
     }
@@ -414,7 +423,7 @@ export default function AgendaPage() {
   const handleReassignStaff = async (reservaId: string, nextStaffId: string) => {
     if (!API_URL || !token) return;
     if (!nextStaffId) {
-      toast.error("Select a valid staff member");
+      toast.error(t("agenda.toast.staffInvalid"));
       return;
     }
 
@@ -430,9 +439,9 @@ export default function AgendaPage() {
         throw new Error(data.error || "Could not reassign staff");
       }
       await fetchReservas({ from, to, status });
-      toast.success("Staff reassigned");
+      toast.success(t("agenda.toast.staffReassigned"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Unknown error");
+      toast.error(err instanceof Error ? err.message : t("errors.unknownGeneric"));
     } finally {
       setUpdatingStaffReservationId(null);
     }
@@ -450,9 +459,9 @@ export default function AgendaPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Could not update reservation status");
       await fetchReservas({ from, to, status });
-      toast.success("Reservation status updated");
+      toast.success(t("agenda.toast.statusUpdated"));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Unknown error");
+      toast.error(err instanceof Error ? err.message : t("errors.unknownGeneric"));
     } finally {
       setUpdatingId(null);
     }
@@ -521,7 +530,7 @@ export default function AgendaPage() {
           return dates.find((d) => d.date === today)?.date || dates[0]?.date || "";
         });
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Unknown error");
+        toast.error(err instanceof Error ? err.message : t("errors.unknownGeneric"));
       } finally {
         setLoadingDates(false);
       }
@@ -577,7 +586,7 @@ export default function AgendaPage() {
           prev && slots.some((s) => s.start_iso === prev) ? prev : slots[0]?.start_iso || ""
         );
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Unknown error");
+        toast.error(err instanceof Error ? err.message : t("errors.unknownGeneric"));
       } finally {
         setLoadingSlots(false);
       }
@@ -594,15 +603,15 @@ export default function AgendaPage() {
       .map(([servicio_id, cantidad]) => ({ servicio_id, cantidad: Number(cantidad) }));
 
     if (!manualClientName.trim()) {
-      toast.error("Client name is required for manual reservation");
+      toast.error(t("agenda.toast.manualName"));
       return;
     }
     if (!selectedSlotStart) {
-      toast.error("Select an available date and time");
+      toast.error(t("agenda.toast.pickSlot"));
       return;
     }
     if (selected.length === 0) {
-      toast.error("Select at least one service");
+      toast.error(t("agenda.toast.pickService"));
       return;
     }
 
@@ -627,11 +636,11 @@ export default function AgendaPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Could not create manual reservation");
 
-      toast.success("Manual reservation created successfully");
+      toast.success(t("agenda.toast.manualCreated"));
       resetManualForm();
       await fetchReservas({ from, to, status });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Unknown error");
+      toast.error(err instanceof Error ? err.message : t("errors.unknownGeneric"));
     } finally {
       setCreatingManual(false);
     }
@@ -640,31 +649,26 @@ export default function AgendaPage() {
   return (
     <>
       <section className="mb-7 md:mb-8">
-        <h1 className="text-xl font-semibold tracking-tight md:text-2xl">Agenda</h1>
-        <p className="mt-1 text-xs text-neutral-400 md:text-sm">
-          Review reservations, reschedule when pending or confirmed, filter by date or status, and update
-          state.
-        </p>
+        <h1 className="text-xl font-semibold tracking-tight md:text-2xl">{t("agenda.title")}</h1>
+        <p className="mt-1 text-xs text-neutral-400 md:text-sm">{t("agenda.subtitle")}</p>
         <p className="mt-2 text-[11px] text-neutral-500">
-          {autoRefreshing ? "Syncing..." : "Auto-refresh every 15 seconds"}
-          {lastUpdatedAt ? ` · Last update ${lastUpdatedAt.toLocaleTimeString()}` : ""}
+          {autoRefreshing ? t("common.syncing") : t("agenda.autoRefreshOn")}
+          {lastUpdatedAt ? `${t("agenda.lastUpdate")}${lastUpdatedAt.toLocaleTimeString()}` : ""}
         </p>
       </section>
 
       <div className="mb-6 rounded-2xl border border-neutral-800 bg-[#060606] p-4">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-sm font-semibold text-neutral-100">Create manual reservation</h2>
-            <p className="mt-1 text-xs text-neutral-400">
-              Use this when a client books by phone or outside the client portal.
-            </p>
+            <h2 className="text-sm font-semibold text-neutral-100">{t("agenda.manual.title")}</h2>
+            <p className="mt-1 text-xs text-neutral-400">{t("agenda.manual.subtitle")}</p>
           </div>
           <button
             type="button"
             onClick={() => setManualOpen((prev) => !prev)}
             className="rounded-lg border border-neutral-700 px-3 py-1.5 text-xs font-medium text-neutral-200 transition hover:bg-neutral-800"
           >
-            {manualOpen ? "Hide form" : "Show form"}
+            {manualOpen ? t("agenda.manual.hide") : t("agenda.manual.show")}
           </button>
         </div>
         {manualOpen ? (
@@ -674,14 +678,14 @@ export default function AgendaPage() {
                 type="text"
                 value={manualClientName}
                 onChange={(e) => setManualClientName(e.target.value)}
-                placeholder="Client name *"
+                placeholder={t("agenda.manual.clientName")}
                 className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none transition focus:border-neutral-500 focus:ring-1 focus:ring-neutral-500"
               />
               <input
                 type="tel"
                 value={manualClientPhone}
                 onChange={(e) => setManualClientPhone(e.target.value)}
-                placeholder="Client phone (optional)"
+                placeholder={t("agenda.manual.clientPhone")}
                 className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none transition focus:border-neutral-500 focus:ring-1 focus:ring-neutral-500"
               />
               <select
@@ -695,7 +699,7 @@ export default function AgendaPage() {
                 }}
                 className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none transition focus:border-neutral-500 focus:ring-1 focus:ring-neutral-500"
               >
-                <option value="">Any available staff</option>
+                <option value="">{t("agenda.manual.anyStaff")}</option>
                 {activeStaff.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.nombre}
@@ -706,7 +710,7 @@ export default function AgendaPage() {
                 type="email"
                 value={manualClientEmail}
                 onChange={(e) => setManualClientEmail(e.target.value)}
-                placeholder="Client email (optional)"
+                placeholder={t("agenda.manual.clientEmail")}
                 className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none transition focus:border-neutral-500 focus:ring-1 focus:ring-neutral-500"
               />
               <select
@@ -714,10 +718,10 @@ export default function AgendaPage() {
                 onChange={(e) => setManualEstado(e.target.value)}
                 className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none transition focus:border-neutral-500 focus:ring-1 focus:ring-neutral-500"
               >
-                <option value="">Auto status (recommended)</option>
+                <option value="">{t("agenda.manual.autoStatus")}</option>
                 {ESTADOS.map((s) => (
                   <option key={s} value={s}>
-                    {STATUS_LABELS[s]}
+                    {t(`booking.status.${s}`)}
                   </option>
                 ))}
               </select>
@@ -725,15 +729,15 @@ export default function AgendaPage() {
                 type="text"
                 value={manualNota}
                 onChange={(e) => setManualNota(e.target.value)}
-                placeholder="Optional note"
+                placeholder={t("agenda.manual.note")}
                 className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none transition focus:border-neutral-500 focus:ring-1 focus:ring-neutral-500 md:col-span-2"
               />
             </div>
 
             <div className="mt-3 rounded-xl border border-neutral-800 bg-neutral-950/40 p-3">
-              <p className="mb-2 text-xs font-medium text-neutral-300">Services</p>
+              <p className="mb-2 text-xs font-medium text-neutral-300">{t("agenda.manual.services")}</p>
               {servicios.length === 0 ? (
-                <p className="text-xs text-neutral-500">No active services found.</p>
+                <p className="text-xs text-neutral-500">{t("agenda.manual.noServices")}</p>
               ) : (
                 <div className="max-h-52 space-y-2 overflow-y-auto pr-1">
                   {servicios.map((s) => {
@@ -772,14 +776,14 @@ export default function AgendaPage() {
 
             <div className="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
               <div className="rounded-xl border border-neutral-800 bg-neutral-950/40 p-3">
-                <p className="mb-2 text-xs font-medium text-neutral-300">Available dates</p>
+                <p className="mb-2 text-xs font-medium text-neutral-300">{t("agenda.manual.availableDates")}</p>
                 <div className="mb-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <select
                     value={String(manualDaysWindow)}
                     onChange={(e) => setManualDaysWindow(Number(e.target.value))}
                     className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-2 py-2 text-xs outline-none transition focus:border-neutral-500 focus:ring-1 focus:ring-neutral-500"
                   >
-                    {MANUAL_DAYS_OPTIONS.map((opt) => (
+                    {manualDaysOptions.map((opt) => (
                       <option key={opt.value} value={opt.value}>
                         {opt.label}
                       </option>
@@ -799,12 +803,12 @@ export default function AgendaPage() {
                   </select>
                 </div>
                 {loadingDates ? (
-                  <p className="text-xs text-neutral-500">Loading available dates...</p>
+                  <p className="text-xs text-neutral-500">{t("agenda.manual.loadingDates")}</p>
                 ) : availableDates.length === 0 ? (
-                  <p className="text-xs text-neutral-500">Select services to load available dates.</p>
+                  <p className="text-xs text-neutral-500">{t("agenda.manual.selectServicesDates")}</p>
                 ) : filteredAvailableDates.length === 0 ? (
                   <p className="text-xs text-neutral-500">
-                    No available dates in the selected month. Try another month or extend the range.
+                    {t("agenda.manual.noDatesMonth")}
                   </p>
                 ) : (
                   <div className="max-h-56 overflow-y-auto pr-1">
@@ -827,7 +831,7 @@ export default function AgendaPage() {
                               {formatWeekday(d.date)}
                             </div>
                             <div className={`mt-0.5 text-[11px] ${active ? "text-neutral-700" : "text-neutral-500"}`}>
-                              {d.slots_count} slots
+                              {t("agenda.slotsLine", { count: d.slots_count })}
                             </div>
                           </button>
                         );
@@ -838,17 +842,17 @@ export default function AgendaPage() {
               </div>
 
               <div className="rounded-xl border border-neutral-800 bg-neutral-950/40 p-3">
-                <p className="mb-2 text-xs font-medium text-neutral-300">Available time slots</p>
+                <p className="mb-2 text-xs font-medium text-neutral-300">{t("agenda.manual.availableSlots")}</p>
                 {loadingSlots ? (
-                  <p className="text-xs text-neutral-500">Loading available slots...</p>
+                  <p className="text-xs text-neutral-500">{t("agenda.manual.loadingSlots")}</p>
                 ) : availableSlots.length === 0 ? (
-                  <p className="text-xs text-neutral-500">Select date and services to view slots.</p>
+                  <p className="text-xs text-neutral-500">{t("agenda.manual.selectDateSlots")}</p>
                 ) : (
                   <div className="max-h-56 space-y-3 overflow-y-auto pr-1">
                     {groupedSlotsByBlock.map((group) => (
                       <div key={group.block_key} className="rounded-lg border border-neutral-800 bg-black/30 p-2">
                         <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
-                          Block {group.block_start} - {group.block_end}
+                          {t("agenda.manual.block", { start: group.block_start, end: group.block_end })}
                         </div>
                         <div className="grid grid-cols-3 gap-2">
                           {group.slots.map((slot) => {
@@ -883,7 +887,7 @@ export default function AgendaPage() {
                 disabled={creatingManual || !selectedSlotStart}
                 className="rounded-lg bg-neutral-50 px-4 py-2 text-sm font-medium text-black transition hover:bg-neutral-200 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {creatingManual ? "Creating..." : "Create manual reservation"}
+                {creatingManual ? t("agenda.manual.creating") : t("agenda.manual.create")}
               </button>
             </div>
           </>
@@ -909,10 +913,10 @@ export default function AgendaPage() {
             onChange={(e) => setStatus(e.target.value)}
             className="rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none transition focus:border-neutral-500 focus:ring-1 focus:ring-neutral-500"
           >
-            <option value="">All statuses</option>
+            <option value="">{t("agenda.filters.allStatus")}</option>
             {ESTADOS.map((s) => (
               <option key={s} value={s}>
-                {STATUS_LABELS[s]}
+                {t(`booking.status.${s}`)}
               </option>
             ))}
           </select>
@@ -921,26 +925,28 @@ export default function AgendaPage() {
             onClick={handleApplyFilters}
             className="rounded-lg bg-neutral-50 px-4 py-2 text-sm font-medium text-black transition hover:bg-neutral-200"
           >
-            Apply filters
+            {t("agenda.filters.apply")}
           </button>
         </div>
       </div>
 
       {loading ? (
-        <p className="text-sm text-neutral-400">Loading reservations...</p>
+        <p className="text-sm text-neutral-400">{t("agenda.list.loading")}</p>
       ) : reservas.length === 0 ? (
         <p className="rounded-2xl border border-neutral-800 bg-[#060606] px-6 py-8 text-center text-sm text-neutral-400">
-          No reservations found for current filters.
+          {t("agenda.list.empty")}
         </p>
       ) : (
         <div className="space-y-4">
           {reservas.map((r) => {
-            const contact = resolveClientContact(r);
-            const assignedStaffName = r.staff_id ? staffNameById.get(r.staff_id) || "Assigned staff" : "Unassigned";
+            const contact = resolveClientContact(r, t);
+            const assignedStaffName = r.staff_id
+              ? staffNameById.get(r.staff_id) || t("agenda.staff.assigned")
+              : t("agenda.staff.unassigned");
             const serviceSummary = (r.reserva_servicios || [])
               .map((line) => {
                 const svc = servicios.find((s) => s.id === line.servicio_id);
-                const label = svc?.nombre || "Service";
+                const label = svc?.nombre || t("agenda.serviceFallback");
                 return `${label} ×${Number(line.cantidad ?? 1) || 1}`;
               })
               .join(" · ");
@@ -958,7 +964,7 @@ export default function AgendaPage() {
                       </div>
                       <div className="min-w-0">
                         <p className="text-[11px] font-medium uppercase tracking-wider text-neutral-500">
-                          Scheduled
+                          {t("agenda.card.scheduled")}
                         </p>
                         <p className="mt-0.5 text-base font-semibold leading-snug text-neutral-50">
                           {new Date(r.inicio_en).toLocaleString(undefined, {
@@ -983,7 +989,7 @@ export default function AgendaPage() {
                     <div className="rounded-xl border border-neutral-800/80 bg-neutral-950/60 p-4 ring-1 ring-white/[0.04]">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
-                          Client
+                          {t("agenda.card.client")}
                         </p>
                         <span
                           className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
@@ -992,12 +998,13 @@ export default function AgendaPage() {
                               : "bg-amber-950/70 text-amber-100 ring-1 ring-amber-800/50"
                           }`}
                         >
-                          {contact.source === "portal" ? "Client account" : "Manual entry"}
+                          {contact.source === "portal" ? t("agenda.card.portal") : t("agenda.card.manual")}
                         </span>
                       </div>
                       <p className="mt-2 text-lg font-semibold tracking-tight text-white">{contact.name}</p>
                       <p className="mt-1 text-xs text-neutral-400">
-                        Staff: <span className="font-medium text-neutral-200">{assignedStaffName}</span>
+                        {t("agenda.card.staff")}{" "}
+                        <span className="font-medium text-neutral-200">{assignedStaffName}</span>
                       </p>
                       <div className="mt-3 space-y-2">
                         {contact.email ? (
@@ -1024,7 +1031,7 @@ export default function AgendaPage() {
                         ) : null}
                         {!contact.email && !contact.phone ? (
                           <p className="text-xs text-neutral-500">
-                            No email or phone on file for this booking.
+                            {t("agenda.card.noContact")}
                           </p>
                         ) : null}
                       </div>
@@ -1033,7 +1040,7 @@ export default function AgendaPage() {
                     {serviceSummary ? (
                       <div>
                         <p className="text-[11px] font-semibold uppercase tracking-wider text-neutral-500">
-                          Services
+                          {t("agenda.card.services")}
                         </p>
                         <p className="mt-1 text-sm text-neutral-300">{serviceSummary}</p>
                       </div>
@@ -1041,19 +1048,19 @@ export default function AgendaPage() {
 
                     <div className="flex flex-wrap gap-x-6 gap-y-1 border-t border-neutral-800/80 pt-3 text-sm">
                       <div>
-                        <span className="text-neutral-500">Total </span>
+                        <span className="text-neutral-500">{t("agenda.card.total")} </span>
                         <span className="font-semibold text-neutral-100">
                           ${Number(r.precio_total || 0).toFixed(2)}
                         </span>
                       </div>
                       <div>
-                        <span className="text-neutral-500">Deposit </span>
+                        <span className="text-neutral-500">{t("agenda.card.deposit")} </span>
                         <span className="font-medium text-neutral-200">
                           ${Number(r.anticipo_calculado || 0).toFixed(2)}
                         </span>
                       </div>
                       <div>
-                        <span className="text-neutral-500">Remaining </span>
+                        <span className="text-neutral-500">{t("agenda.card.remaining")} </span>
                         <span className="font-medium text-amber-200/90">
                           ${Number(r.saldo_pendiente || 0).toFixed(2)}
                         </span>
@@ -1062,7 +1069,7 @@ export default function AgendaPage() {
 
                     {r.nota ? (
                       <div className="rounded-lg border border-neutral-800/90 bg-neutral-900/40 px-3 py-2">
-                        <p className="text-[11px] font-medium uppercase tracking-wider text-neutral-500">Note</p>
+                        <p className="text-[11px] font-medium uppercase tracking-wider text-neutral-500">{t("agenda.card.note")}</p>
                         <p className="mt-1 text-sm text-neutral-300">{r.nota}</p>
                       </div>
                     ) : null}
@@ -1072,6 +1079,7 @@ export default function AgendaPage() {
                         <RescheduleSlotPicker
                           apiUrl={API_URL}
                           negocioId={negocioId}
+                          copy={rescheduleCopy}
                           staffId={r.staff_id || null}
                           reservaServicios={
                             (r.reserva_servicios || []).map((x) => ({
@@ -1100,7 +1108,7 @@ export default function AgendaPage() {
                                 : "bg-neutral-900 text-neutral-300 ring-neutral-700"
                         }`}
                       >
-                        {STATUS_LABELS[r.estado]}
+                        {t(`booking.status.${r.estado}`)}
                       </span>
                       <select
                         value={r.estado}
@@ -1110,7 +1118,7 @@ export default function AgendaPage() {
                       >
                         {ESTADOS.map((s) => (
                           <option key={s} value={s}>
-                            {STATUS_LABELS[s]}
+                            {t(`booking.status.${s}`)}
                           </option>
                         ))}
                       </select>
@@ -1129,7 +1137,7 @@ export default function AgendaPage() {
                         className="min-w-[170px] rounded-lg border border-neutral-700 bg-neutral-900/90 px-3 py-2 text-xs font-medium outline-none transition focus:border-neutral-500 focus:ring-1 focus:ring-neutral-500 disabled:opacity-60"
                       >
                         <option value="">
-                          {activeStaff.length === 0 ? "No active staff" : "Select staff"}
+                          {activeStaff.length === 0 ? t("agenda.staff.none") : t("agenda.staff.select")}
                         </option>
                         {activeStaff.map((s) => (
                           <option key={s.id} value={s.id}>
@@ -1144,7 +1152,7 @@ export default function AgendaPage() {
                       onClick={() => setRescheduleOpenId((prev) => (prev === r.id ? null : r.id))}
                       className="rounded-xl border border-neutral-600 bg-neutral-900/50 px-4 py-2.5 text-xs font-semibold text-neutral-100 transition hover:bg-neutral-800 disabled:opacity-50"
                     >
-                      {rescheduleOpenId === r.id ? "Close reschedule" : "Reschedule"}
+                      {rescheduleOpenId === r.id ? t("agenda.actions.closeReschedule") : t("agenda.actions.reschedule")}
                     </button>
                   </div>
                 </div>

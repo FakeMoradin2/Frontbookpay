@@ -1,0 +1,30 @@
+export const enPricing: Record<string, string> = {
+  "pricing.title": "Plans and pricing",
+  "pricing.subtitle":
+    "Choose the option that best fits you. Free customer account, or admin panel with a one-time payment.",
+  "pricing.stripeTestTitle": "Stripe test mode",
+  "pricing.stripeTestBody":
+    "Payments are simulated — no real charges. In Checkout use card 4242 4242 4242 4242, any future expiry, any CVC. Set NEXT_PUBLIC_STRIPE_TEST_MODE=true in frontend/.env while your backend uses sk_test_... keys.",
+  "pricing.client.title": "Client",
+  "pricing.client.desc": "Book appointments at businesses, manage your reservations.",
+  "pricing.client.f1": "Book appointments",
+  "pricing.client.f2": "View and cancel reservations",
+  "pricing.client.f3": "Search businesses and services",
+  "pricing.client.f4": "No cost",
+  "pricing.client.cta": "Get started free",
+  "pricing.admin.badge": "Recommended",
+  "pricing.admin.title": "Administrator",
+  "pricing.admin.desc": "Full panel to manage your business, services, schedule, and payments.",
+  "pricing.admin.price": "One-time payment",
+  "pricing.admin.f1": "Everything in Client plan",
+  "pricing.admin.f2": "Admin panel",
+  "pricing.admin.f3": "Manage services and schedules",
+  "pricing.admin.f4": "Agenda and block dates",
+  "pricing.admin.f5": "Integrated payment gateway",
+  "pricing.admin.f6": "Your own business created",
+  "pricing.admin.namePlaceholder": "Your name",
+  "pricing.admin.emailPlaceholder": "you@email.com",
+  "pricing.admin.payCta": "Pay with Stripe →",
+  "pricing.admin.footer":
+    "Secure payment with Stripe. You'll receive your admin account after payment.",
+};

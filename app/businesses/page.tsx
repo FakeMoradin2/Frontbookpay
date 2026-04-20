@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import Link from "next/link";
 import ClientNav from "@/components/ClientNav";
 import ListingThumb from "@/components/ListingThumb";
+import { useTranslation } from "@/contexts/LocaleContext";
 
 type Negocio = {
   id: string;
@@ -49,6 +50,7 @@ function escapeRegExp(text: string) {
 }
 
 export default function BusinessesListPage() {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
   const [negocios, setNegocios] = useState<Negocio[]>([]);
@@ -62,7 +64,7 @@ export default function BusinessesListPage() {
   useEffect(() => {
     const load = async () => {
       if (!API_URL) {
-        toast.error("API URL is not configured.");
+        toast.error(t("errors.apiUrlMissingShort"));
         setLoading(false);
         return;
       }
@@ -70,17 +72,17 @@ export default function BusinessesListPage() {
         const res = await fetch(`${API_URL}/api/negocios/negocios`);
         const data: NegociosResponse = await res.json();
         if (!res.ok || !data.ok || !Array.isArray(data.data)) {
-          throw new Error(data.error || "Could not load businesses.");
+          throw new Error(data.error || t("errors.unknownGeneric"));
         }
         setNegocios(data.data);
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Unknown error loading businesses.");
+        toast.error(err instanceof Error ? err.message : t("errors.unknownGeneric"));
       } finally {
         setLoading(false);
       }
     };
     void load();
-  }, []);
+  }, [t]);
 
   const handleSearch = useCallback(async (text: string) => {
     if (!API_URL) return;
@@ -105,10 +107,10 @@ export default function BusinessesListPage() {
       const serData: ServiciosResponse = await serRes.json();
 
       if (!negRes.ok || !negData.ok || !Array.isArray(negData.data)) {
-        throw new Error(negData.error || "Could not load businesses.");
+        throw new Error(negData.error || t("errors.unknownGeneric"));
       }
       if (!serRes.ok || !serData.ok || !Array.isArray(serData.data)) {
-        throw new Error(serData.error || "Could not load services.");
+        throw new Error(serData.error || t("errors.unknownGeneric"));
       }
 
       const businessFiltered = term
@@ -119,11 +121,11 @@ export default function BusinessesListPage() {
       setNegocios(businessFiltered);
       setServicios(serData.data);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Unknown search error.");
+      toast.error(err instanceof Error ? err.message : t("errors.unknownSearch"));
     } finally {
       setSearching(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -168,10 +170,8 @@ export default function BusinessesListPage() {
       <div className="w-full max-w-3xl">
         <ClientNav />
         <header className="mb-8">
-          <h1 className="text-2xl font-semibold tracking-tight">Find a business</h1>
-          <p className="mt-2 text-sm text-neutral-400">
-            Search businesses or services and open the best match quickly.
-          </p>
+          <h1 className="text-2xl font-semibold tracking-tight">{t("businesses.title")}</h1>
+          <p className="mt-2 text-sm text-neutral-400">{t("businesses.subtitle")}</p>
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="button"
@@ -182,7 +182,7 @@ export default function BusinessesListPage() {
                   : "border-neutral-700 text-neutral-300 hover:bg-neutral-800"
               }`}
             >
-              Businesses
+              {t("businesses.tab.businesses")}
             </button>
             <button
               type="button"
@@ -193,7 +193,7 @@ export default function BusinessesListPage() {
                   : "border-neutral-700 text-neutral-300 hover:bg-neutral-800"
               }`}
             >
-              Services
+              {t("businesses.tab.services")}
             </button>
           </div>
           <div className="mt-3 flex gap-2">
@@ -201,7 +201,11 @@ export default function BusinessesListPage() {
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={tab === "businesses" ? "Search business name..." : "Search service name..."}
+              placeholder={
+                tab === "businesses"
+                  ? t("businesses.search.placeholder.business")
+                  : t("businesses.search.placeholder.service")
+              }
               className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none transition focus:border-neutral-500 focus:ring-1 focus:ring-neutral-500"
             />
             <button
@@ -209,19 +213,19 @@ export default function BusinessesListPage() {
               onClick={() => void handleSearch(query)}
               className="rounded-lg bg-neutral-50 px-4 py-2 text-sm font-medium text-black transition hover:bg-neutral-200"
             >
-              Search
+              {t("common.search")}
             </button>
           </div>
           {searching ? (
-            <p className="mt-2 text-[11px] text-neutral-500">Searching...</p>
+            <p className="mt-2 text-[11px] text-neutral-500">{t("businesses.searching")}</p>
           ) : null}
         </header>
 
         {loading || searching ? (
-          <p className="text-sm text-neutral-400">Loading businesses...</p>
+          <p className="text-sm text-neutral-400">{t("businesses.loading")}</p>
         ) : tab === "businesses" ? negocios.length === 0 ? (
           <p className="rounded-2xl border border-neutral-800 bg-[#060606] px-6 py-8 text-center text-sm text-neutral-400">
-            No businesses available yet.
+            {t("businesses.empty")}
           </p>
         ) : (
           <div className="space-y-3">
@@ -239,14 +243,14 @@ export default function BusinessesListPage() {
                       <p className="mt-1 text-xs text-neutral-400">{n.zona_horaria}</p>
                     </div>
                   </div>
-                  <span className="shrink-0 text-xs text-neutral-300">View</span>
+                  <span className="shrink-0 text-xs text-neutral-300">{t("common.view")}</span>
                 </div>
               </Link>
             ))}
           </div>
         ) : servicios.length === 0 ? (
           <p className="rounded-2xl border border-neutral-800 bg-[#060606] px-6 py-8 text-center text-sm text-neutral-400">
-            No services found.
+            {t("businesses.noServices")}
           </p>
         ) : (
           <div className="space-y-3">
@@ -266,15 +270,21 @@ export default function BusinessesListPage() {
                     <div className="min-w-0">
                       <h2 className="text-sm font-medium text-neutral-50">{renderHighlighted(s.nombre)}</h2>
                       <p className="mt-1 text-xs text-neutral-400">
-                        {renderHighlighted(s.negocios?.nombre || "Business")} · {s.duracion_min} min + {s.buffer_min ?? 0}{" "}
-                        min buffer · ${s.precio}
+                        {renderHighlighted(
+                          t("businesses.serviceMeta", {
+                            name: s.negocios?.nombre || t("businesses.businessFallback"),
+                            dur: s.duracion_min,
+                            buf: s.buffer_min ?? 0,
+                            price: Number(s.precio).toFixed(2),
+                          })
+                        )}
                       </p>
                       {s.descripcion ? (
                         <p className="mt-1 text-xs text-neutral-500 line-clamp-1">{renderHighlighted(s.descripcion)}</p>
                       ) : null}
                     </div>
                   </div>
-                  <span className="shrink-0 text-xs text-neutral-300">Open business</span>
+                  <span className="shrink-0 text-xs text-neutral-300">{t("businesses.openBusiness")}</span>
                 </div>
               </Link>
             ))}
