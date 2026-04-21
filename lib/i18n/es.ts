@@ -213,6 +213,7 @@ export const es: Record<string, string> = {
   "pricing.admin.title": "Administrador",
   "pricing.admin.desc": "Panel completo para tu negocio, servicios, horarios y pagos.",
   "pricing.admin.price": "Pago único",
+  "pricing.admin.amount": "$1,500.00 MXN",
   "pricing.admin.f1": "Todo lo del plan Cliente",
   "pricing.admin.f2": "Panel de administración",
   "pricing.admin.f3": "Gestionar servicios y horarios",

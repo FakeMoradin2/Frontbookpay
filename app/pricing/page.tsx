@@ -138,7 +138,7 @@ export default function PricingPage() {
             <p className="mt-1 text-sm text-neutral-400">{t("pricing.admin.desc")}</p>
             <div className="mt-6">
               <span className="text-3xl font-bold text-white">{t("pricing.admin.price")}</span>
-              <span className="ml-1 text-neutral-500">$99.00MXN</span>
+              <span className="ml-1 text-neutral-500">{t("pricing.admin.amount")}</span>
             </div>
             <ul className="mt-6 space-y-3 text-sm text-neutral-300">
               <li className="flex items-center gap-2">

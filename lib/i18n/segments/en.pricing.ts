@@ -16,6 +16,7 @@ export const enPricing: Record<string, string> = {
   "pricing.admin.title": "Administrator",
   "pricing.admin.desc": "Full panel to manage your business, services, schedule, and payments.",
   "pricing.admin.price": "One-time payment",
+  "pricing.admin.amount": "$1,500.00 MXN",
   "pricing.admin.f1": "Everything in Client plan",
   "pricing.admin.f2": "Admin panel",
   "pricing.admin.f3": "Manage services and schedules",
