@@ -17,6 +17,18 @@ body {
   color: var(--foreground);
 }
 
+/*
+ * iOS Safari auto-zooms when focused form controls use font-size < 16px.
+ * Force 16px on touch devices to prevent persistent zoom jumps in forms.
+ */
+@media (max-width: 768px) and (pointer: coarse) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
 /* Legal / long-form pages */
 .legal-doc-content h2 {
   margin-top: 2.5rem;
