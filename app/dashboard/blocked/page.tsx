@@ -8,6 +8,12 @@ type Bloqueo = {
   inicio_en: string;
   fin_en: string;
   motivo: string | null;
+  staff_id?: string | null;
+};
+
+type StaffMember = {
+  id: string;
+  nombre: string;
 };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -17,6 +23,9 @@ export default function BlockedDatesPage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [bloqueos, setBloqueos] = useState<Bloqueo[]>([]);
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [scopeMode, setScopeMode] = useState<"general" | "staff">("general");
+  const [selectedStaffId, setSelectedStaffId] = useState("");
 
   const [inicioEn, setInicioEn] = useState("");
   const [finEn, setFinEn] = useState("");
@@ -37,10 +46,23 @@ export default function BlockedDatesPage() {
     setBloqueos(Array.isArray(data.data) ? data.data : []);
   }, []);
 
+  const fetchStaff = useCallback(async () => {
+    if (!API_URL) return;
+    const token = getToken();
+    if (!token) return;
+    const res = await fetch(`${API_URL}/api/usuarios/admin/staff`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || "Could not load staff");
+    setStaff(Array.isArray(data.data) ? data.data : []);
+  }, []);
+
   useEffect(() => {
     const load = async () => {
       try {
         await fetchBloqueos();
+        await fetchStaff();
       } catch (err) {
         toast.error(err instanceof Error ? err.message : "Unknown error");
       } finally {
@@ -48,7 +70,7 @@ export default function BlockedDatesPage() {
       }
     };
     void load();
-  }, [fetchBloqueos]);
+  }, [fetchBloqueos, fetchStaff]);
 
   const handleCreate = async (e: FormEvent) => {
     e.preventDefault();
@@ -61,7 +83,30 @@ export default function BlockedDatesPage() {
       toast.error("Start must be earlier than end.");
       return;
     }
+    if (scopeMode === "staff" && !selectedStaffId) {
+      toast.error("Selecciona un staff para este bloqueo.");
+      return;
+    }
 
+    await createBlock({
+      inicio: new Date(inicioEn),
+      fin: new Date(finEn),
+      motivo: motivo.trim() || null,
+      successMessage: "Blocked period created.",
+    });
+  };
+
+  const createBlock = async ({
+    inicio,
+    fin,
+    motivo: reason,
+    successMessage,
+  }: {
+    inicio: Date;
+    fin: Date;
+    motivo: string | null;
+    successMessage: string;
+  }) => {
     if (!API_URL) return;
     const token = getToken();
     if (!token) return;
@@ -72,23 +117,46 @@ export default function BlockedDatesPage() {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({
-          inicio_en: new Date(inicioEn).toISOString(),
-          fin_en: new Date(finEn).toISOString(),
-          motivo: motivo.trim() || null,
+          inicio_en: inicio.toISOString(),
+          fin_en: fin.toISOString(),
+          motivo: reason,
+          staff_id: scopeMode === "staff" ? selectedStaffId || null : null,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Could not create block");
-      toast.success("Blocked period created.");
+      toast.success(successMessage);
       setInicioEn("");
       setFinEn("");
       setMotivo("");
       await fetchBloqueos();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Unknown error");
+      const message = err instanceof Error ? err.message : "Unknown error";
+      if (message.includes("missing bloqueos.staff_id")) {
+        setScopeMode("general");
+        setSelectedStaffId("");
+        toast.error("Tu base no tiene bloqueos por staff todavia. Usa Negocio general o aplica la migracion.");
+        return;
+      }
+      toast.error(message);
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleQuickBlock = async (minutes: number) => {
+    if (scopeMode === "staff" && !selectedStaffId) {
+      toast.error("Selecciona un staff para usar bloqueo por staff.");
+      return;
+    }
+    const start = new Date();
+    const end = new Date(start.getTime() + minutes * 60 * 1000);
+    await createBlock({
+      inicio: start,
+      fin: end,
+      motivo: `Quick block (${minutes} min)`,
+      successMessage: `Blocked ${minutes} minutes from now.`,
+    });
   };
 
   const performDelete = async (id: string) => {
@@ -144,56 +212,129 @@ export default function BlockedDatesPage() {
         onSubmit={handleCreate}
         className="mb-8 max-w-2xl space-y-4 rounded-2xl border border-neutral-800 bg-[#060606] p-6"
       >
-        <h2 className="text-sm font-medium">New blocked period</h2>
+        <section className="space-y-3 rounded-xl border border-neutral-800 bg-[#050505] p-4">
+          <h2 className="text-sm font-medium">Bloqueo rapido (1 click)</h2>
+          <p className="text-xs text-neutral-400">Solo para bloquear en este momento.</p>
+          <div className="flex flex-wrap gap-2">
+            {[30, 45, 60].map((minutes) => (
+              <button
+                key={minutes}
+                type="button"
+                onClick={() => void handleQuickBlock(minutes)}
+                disabled={saving}
+                className="flex h-9 items-center justify-center rounded-lg border border-neutral-700 px-3 text-xs font-medium text-neutral-200 transition hover:bg-neutral-800 disabled:opacity-50"
+              >
+                {saving ? "Guardando..." : `${minutes} min desde ahora`}
+              </button>
+            ))}
+          </div>
+        </section>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <section className="space-y-3 rounded-xl border border-neutral-800 bg-[#050505] p-4">
+          <h2 className="text-sm font-medium">Bloqueo manual</h2>
+          <p className="text-xs text-neutral-400">Programa un rango con alcance general o por staff.</p>
+
+          <div className="space-y-2">
+            <div className="text-xs font-medium uppercase tracking-wide text-neutral-400">Alcance del bloqueo</div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setScopeMode("general");
+                  setSelectedStaffId("");
+                }}
+                className={`h-9 rounded-lg border px-3 text-xs font-medium transition ${
+                  scopeMode === "general"
+                    ? "border-neutral-200 bg-neutral-100 text-black"
+                    : "border-neutral-700 text-neutral-200 hover:bg-neutral-800"
+                }`}
+              >
+                Negocio general
+              </button>
+              <button
+                type="button"
+                onClick={() => setScopeMode("staff")}
+                className={`h-9 rounded-lg border px-3 text-xs font-medium transition ${
+                  scopeMode === "staff"
+                    ? "border-neutral-200 bg-neutral-100 text-black"
+                    : "border-neutral-700 text-neutral-200 hover:bg-neutral-800"
+                }`}
+              >
+                Staff especifico
+              </button>
+            </div>
+          </div>
+
+          {scopeMode === "staff" ? (
+            <div className="space-y-1.5">
+              <label className="block text-sm text-neutral-300" htmlFor="scope_staff_id">
+                Staff
+              </label>
+              <select
+                id="scope_staff_id"
+                value={selectedStaffId}
+                onChange={(e) => setSelectedStaffId(e.target.value)}
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none transition focus:border-neutral-500 focus:ring-1 focus:ring-neutral-500"
+              >
+                <option value="">Selecciona un staff</option>
+                {staff.map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.nombre}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : null}
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className="block text-sm text-neutral-300" htmlFor="inicio_en">
+                Start
+              </label>
+              <input
+                id="inicio_en"
+                type="datetime-local"
+                value={inicioEn}
+                onChange={(e) => setInicioEn(e.target.value)}
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none transition focus:border-neutral-500 focus:ring-1 focus:ring-neutral-500"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="block text-sm text-neutral-300" htmlFor="fin_en">
+                End
+              </label>
+              <input
+                id="fin_en"
+                type="datetime-local"
+                value={finEn}
+                onChange={(e) => setFinEn(e.target.value)}
+                className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none transition focus:border-neutral-500 focus:ring-1 focus:ring-neutral-500"
+              />
+            </div>
+          </div>
+
           <div className="space-y-1.5">
-            <label className="block text-sm text-neutral-300" htmlFor="inicio_en">
-              Start
+            <label className="block text-sm text-neutral-300" htmlFor="motivo">
+              Reason (optional)
             </label>
             <input
-              id="inicio_en"
-              type="datetime-local"
-              value={inicioEn}
-              onChange={(e) => setInicioEn(e.target.value)}
+              id="motivo"
+              type="text"
+              value={motivo}
+              onChange={(e) => setMotivo(e.target.value)}
               className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none transition focus:border-neutral-500 focus:ring-1 focus:ring-neutral-500"
+              placeholder="e.g. Holiday, internal event"
             />
           </div>
-          <div className="space-y-1.5">
-            <label className="block text-sm text-neutral-300" htmlFor="fin_en">
-              End
-            </label>
-            <input
-              id="fin_en"
-              type="datetime-local"
-              value={finEn}
-              onChange={(e) => setFinEn(e.target.value)}
-              className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none transition focus:border-neutral-500 focus:ring-1 focus:ring-neutral-500"
-            />
-          </div>
-        </div>
 
-        <div className="space-y-1.5">
-          <label className="block text-sm text-neutral-300" htmlFor="motivo">
-            Reason (optional)
-          </label>
-          <input
-            id="motivo"
-            type="text"
-            value={motivo}
-            onChange={(e) => setMotivo(e.target.value)}
-            className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none transition focus:border-neutral-500 focus:ring-1 focus:ring-neutral-500"
-            placeholder="e.g. Holiday, internal event"
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={saving}
-          className="flex h-10 items-center justify-center rounded-lg bg-neutral-50 px-4 text-sm font-medium text-black transition hover:bg-neutral-200 disabled:opacity-70"
-        >
-          {saving ? "Saving..." : "Create block"}
-        </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="flex h-10 items-center justify-center rounded-lg bg-neutral-50 px-4 text-sm font-medium text-black transition hover:bg-neutral-200 disabled:opacity-70"
+          >
+            {saving ? "Saving..." : "Create block"}
+          </button>
+        </section>
       </form>
 
       {loading ? (
@@ -212,6 +353,12 @@ export default function BlockedDatesPage() {
               <div>
                 <div className="font-medium text-neutral-50">
                   {new Date(b.inicio_en).toLocaleString()} - {new Date(b.fin_en).toLocaleString()}
+                </div>
+                <div className="mt-1 text-xs text-neutral-400">
+                  Scope:{" "}
+                  {b.staff_id
+                    ? `Staff - ${staff.find((s) => s.id === b.staff_id)?.nombre || "Specific staff"}`
+                    : "Business general"}
                 </div>
                 <div className="mt-1 text-xs text-neutral-400">{b.motivo || "No reason provided"}</div>
               </div>
