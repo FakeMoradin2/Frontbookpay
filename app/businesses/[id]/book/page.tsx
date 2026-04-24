@@ -113,7 +113,12 @@ export default function BusinessBookPage() {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [occupiedMinutes, setOccupiedMinutes] = useState<number>(0);
   const [note, setNote] = useState("");
+  const [guestName, setGuestName] = useState("");
+  const [guestEmail, setGuestEmail] = useState("");
+  const [guestPhone, setGuestPhone] = useState("");
   const hasStaff = staff.length > 0;
+  const hasClientSession =
+    typeof window !== "undefined" && !!window.localStorage.getItem("access_token");
 
   const groupedDates = useMemo(() => {
     const groups: Record<string, Array<{ date: string; weekday: string; slots_count: number }>> = {};
@@ -296,11 +301,6 @@ export default function BusinessBookPage() {
         ? window.localStorage.getItem("access_token")
         : null;
 
-    if (!token) {
-      toast.error("You must sign in as a client to create a reservation.");
-      return;
-    }
-
     setSubmitting(true);
     try {
       const body = {
@@ -313,14 +313,31 @@ export default function BusinessBookPage() {
         Object.assign(body, { staff_id: selectedStaffId });
       }
 
-      const res = await fetch(`${API_URL}/api/reservas/cliente/reservas`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
-      });
+      let res: Response;
+      if (token) {
+        res = await fetch(`${API_URL}/api/reservas/cliente/reservas`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(body),
+        });
+      } else {
+        const publicBody = {
+          ...body,
+          cliente_nombre: guestName.trim() || undefined,
+          cliente_correo: guestEmail.trim().toLowerCase() || undefined,
+          cliente_telefono: guestPhone.trim() || undefined,
+        };
+        res = await fetch(`${API_URL}/api/reservas/public/reservas`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(publicBody),
+        });
+      }
 
       const data: ReservaResponse = await res.json();
 
@@ -333,11 +350,14 @@ export default function BusinessBookPage() {
       const canPayOnline = !!payload?.can_pay_deposit_online && !!reservaId;
 
       if (canPayOnline) {
-        const payRes = await fetch(`${API_URL}/api/stripe/deposit-checkout`, {
+        const payEndpoint = token
+          ? `${API_URL}/api/stripe/deposit-checkout`
+          : `${API_URL}/api/stripe/deposit-checkout-public`;
+        const payRes = await fetch(payEndpoint, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           body: JSON.stringify({ reserva_id: reservaId }),
         });
@@ -357,9 +377,13 @@ export default function BusinessBookPage() {
         return;
       }
 
-      toast.success("Reservation created. You can review it in your client space.");
+      toast.success(
+        token
+          ? "Reservation created. You can review it in your client space."
+          : "Reservation created successfully. The business will contact you with the details."
+      );
       setTimeout(() => {
-        router.push("/client/reservations");
+        router.push(token ? "/client/reservations" : `/businesses/${negocioId}`);
       }, 1200);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Unknown error creating reservation.");
@@ -383,6 +407,15 @@ export default function BusinessBookPage() {
 
     if (!selectedSlotStart) {
       toast.error("Please choose one available time slot.");
+      return;
+    }
+
+    if (!hasClientSession && !guestName.trim()) {
+      toast.error("Please enter your name to continue.");
+      return;
+    }
+    if (!hasClientSession && !guestPhone.trim()) {
+      toast.error("Please enter your phone number to continue.");
       return;
     }
 
@@ -614,6 +647,38 @@ export default function BusinessBookPage() {
             </section>
 
             <section className="space-y-1.5">
+              {!hasClientSession ? (
+                <div className="mb-4 rounded-2xl border border-neutral-800 bg-[#060606] p-4">
+                  <h2 className="text-sm font-medium text-neutral-50">Your details</h2>
+                  <p className="mt-1 text-xs text-neutral-500">
+                    We use this information to confirm your reservation even if you do not have an account.
+                  </p>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <input
+                      type="text"
+                      placeholder="Full name *"
+                      className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none ring-0 transition focus:border-neutral-500 focus:bg-neutral-900 focus:ring-1 focus:ring-neutral-500"
+                      value={guestName}
+                      onChange={(e) => setGuestName(e.target.value)}
+                    />
+                    <input
+                      type="email"
+                      placeholder="Email (optional)"
+                      className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none ring-0 transition focus:border-neutral-500 focus:bg-neutral-900 focus:ring-1 focus:ring-neutral-500"
+                      value={guestEmail}
+                      onChange={(e) => setGuestEmail(e.target.value)}
+                    />
+                    <input
+                      type="tel"
+                      placeholder="Phone *"
+                      required={!hasClientSession}
+                      className="w-full rounded-lg border border-neutral-800 bg-neutral-900/60 px-3 py-2 text-sm outline-none ring-0 transition focus:border-neutral-500 focus:bg-neutral-900 focus:ring-1 focus:ring-neutral-500 sm:col-span-2"
+                      value={guestPhone}
+                      onChange={(e) => setGuestPhone(e.target.value)}
+                    />
+                  </div>
+                </div>
+              ) : null}
               <label className="block text-sm text-neutral-300" htmlFor="note">
                 Note for the business (optional)
               </label>
